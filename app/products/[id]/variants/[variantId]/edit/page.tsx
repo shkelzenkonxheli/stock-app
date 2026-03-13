@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type EditVariantPageProps = {
@@ -12,6 +13,8 @@ type EditVariantPageProps = {
 
 async function updateVariant(formData: FormData) {
   "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
 
   const productId = Number(formData.get("productId"));
   const variantId = Number(formData.get("variantId"));
@@ -53,6 +56,8 @@ async function updateVariant(formData: FormData) {
 export default async function EditVariantPage({
   params,
 }: EditVariantPageProps) {
+  await requireRole(["SUPER_ADMIN"]);
+
   const { id, variantId } = await params;
   const productId = Number(id);
   const parsedVariantId = Number(variantId);

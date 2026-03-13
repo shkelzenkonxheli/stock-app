@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 async function createProduct(formData: FormData) {
   "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
 
   const name = formData.get("name")?.toString().trim();
   const brand = formData.get("brand")?.toString().trim();
@@ -26,7 +29,9 @@ async function createProduct(formData: FormData) {
   redirect(`/products/${product.id}`);
 }
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  await requireRole(["SUPER_ADMIN"]);
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ffedd5_0%,transparent_20%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">

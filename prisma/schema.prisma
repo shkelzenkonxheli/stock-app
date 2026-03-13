@@ -34,6 +34,7 @@ model Variant {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   orders  Order[]
+  items   OrderItem[]
 }
 
 model Order {
@@ -41,14 +42,49 @@ model Order {
   customerName String
   phone        String
   instagram    String?
-  quantity     Int
+  source       OrderSource @default(INSTAGRAM)
+  quantity     Int?
   notes        String?
   status       OrderStatus @default(NEW)
-  variantId    Int
+  variantId    Int?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  variant Variant?    @relation(fields: [variantId], references: [id])
+  items   OrderItem[]
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId    Int
+  variantId Int
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   variant Variant @relation(fields: [variantId], references: [id])
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions Session[]
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum OrderStatus {
@@ -56,4 +92,16 @@ enum OrderStatus {
   READY
   DONE
   CANCELED
+}
+
+enum OrderSource {
+  INSTAGRAM
+  STORE
+  WHOLESALE
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SELLER
+  WAREHOUSE
 }

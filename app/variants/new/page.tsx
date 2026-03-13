@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { requireRole } from "@/lib/auth";
 
-export default function LegacyVariantRoutePage() {
+export default async function LegacyVariantRoutePage() {
+  await requireRole(["SUPER_ADMIN"]);
+
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-xl rounded-2xl border bg-white p-6 shadow-sm">

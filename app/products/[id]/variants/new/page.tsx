@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VariantRowsForm } from "./variant-rows-form";
 
@@ -12,6 +13,8 @@ type NewProductVariantPageProps = {
 
 async function createVariants(formData: FormData) {
   "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
 
   const productId = Number(formData.get("productId"));
   const rowsRaw = formData.get("rows")?.toString();
@@ -114,6 +117,8 @@ async function createVariants(formData: FormData) {
 export default async function NewProductVariantPage({
   params,
 }: NewProductVariantPageProps) {
+  await requireRole(["SUPER_ADMIN"]);
+
   const { id } = await params;
   const productId = Number(id);
 
@@ -130,35 +135,38 @@ export default async function NewProductVariantPage({
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-4xl rounded-2xl border bg-white p-6 shadow-sm">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fef3c7_0%,transparent_18%),radial-gradient(circle_at_top_right,#dbeafe_0%,transparent_22%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl rounded-[32px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:p-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Variant Setup
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
               Shto variante
             </h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-slate-600">
               {product.name} - {product.brand}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className="rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
             >
               Home
             </Link>
             <Link
               href={`/products/${product.id}`}
-              className="rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
             >
               Kthehu
             </Link>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-900 shadow-sm">
           Ketu shton variante reale me rreshta: p.sh. 41 / Red / 20 / 89.99,
           pastaj shton rreshtin tjeter me +.
         </div>

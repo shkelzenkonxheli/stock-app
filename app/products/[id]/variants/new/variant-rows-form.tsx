@@ -69,20 +69,30 @@ export function VariantRowsForm({
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="rows" value={serializedRows} />
 
-      <div className="overflow-hidden rounded-2xl border">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 text-left text-gray-600">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50/90 text-left text-slate-600">
             <tr>
-              <th className="px-4 py-3 font-medium">Numri</th>
-              <th className="px-4 py-3 font-medium">Ngjyra</th>
-              <th className="px-4 py-3 font-medium">Stoku</th>
-              <th className="px-4 py-3 font-medium">Cmimi</th>
-              <th className="px-4 py-3 font-medium">Hiq</th>
+              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                Numri
+              </th>
+              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                Ngjyra
+              </th>
+              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                Stoku
+              </th>
+              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                Cmimi
+              </th>
+              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                Hiq
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-slate-100 bg-white">
             {rows.map((row, index) => (
-              <tr key={row.id}>
+              <tr key={row.id} className="transition hover:bg-amber-50/30">
                 <td className="px-4 py-3">
                   <input
                     type="text"
@@ -91,7 +101,7 @@ export function VariantRowsForm({
                       updateRow(row.id, "size", event.target.value)
                     }
                     placeholder={index === 0 ? "41" : "42"}
-                    className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -102,7 +112,7 @@ export function VariantRowsForm({
                       updateRow(row.id, "color", event.target.value)
                     }
                     placeholder={index === 0 ? "Red" : "Black"}
-                    className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -114,7 +124,7 @@ export function VariantRowsForm({
                       updateRow(row.id, "stock", event.target.value)
                     }
                     placeholder="20"
-                    className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -127,7 +137,7 @@ export function VariantRowsForm({
                       updateRow(row.id, "price", event.target.value)
                     }
                     placeholder="89.99"
-                    className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -135,7 +145,7 @@ export function VariantRowsForm({
                     type="button"
                     onClick={() => removeRow(row.id)}
                     disabled={rows.length === 1}
-                    className="rounded-lg border px-3 py-2 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Hiq
                   </button>
@@ -150,14 +160,14 @@ export function VariantRowsForm({
         <button
           type="button"
           onClick={addRow}
-          className="rounded-xl border border-black px-4 py-2 text-sm text-black"
+          className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
         >
           + Shto rresht
         </button>
 
         <button
           type="submit"
-          className="rounded-xl bg-black px-5 py-2 text-white transition hover:bg-gray-800"
+          className="rounded-2xl bg-amber-500 px-5 py-2.5 font-semibold text-slate-950 shadow-[0_10px_25px_rgba(245,158,11,0.22)] transition hover:bg-amber-400"
         >
           Ruaj variantet
         </button>
