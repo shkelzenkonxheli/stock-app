@@ -23,6 +23,14 @@ const createEmptyRow = (): VariantRow => ({
   price: "",
 });
 
+const cloneRow = (row: VariantRow): VariantRow => ({
+  id: crypto.randomUUID(),
+  size: row.size,
+  color: row.color,
+  stock: row.stock,
+  price: row.price,
+});
+
 export function VariantRowsForm({
   productId,
   action,
@@ -42,7 +50,15 @@ export function VariantRowsForm({
   };
 
   const addRow = () => {
-    setRows((currentRows) => [...currentRows, createEmptyRow()]);
+    setRows((currentRows) => {
+      const lastRow = currentRows[currentRows.length - 1];
+
+      if (!lastRow) {
+        return [createEmptyRow()];
+      }
+
+      return [...currentRows, cloneRow(lastRow)];
+    });
   };
 
   const removeRow = (rowId: string) => {
@@ -154,6 +170,11 @@ export function VariantRowsForm({
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+        Kur shtyp `+ Shto rresht`, rreshti i fundit kopjohet automatikisht.
+        Zakonisht mjafton te nderrosh vetem numrin.
       </div>
 
       <div className="flex items-center justify-between">
