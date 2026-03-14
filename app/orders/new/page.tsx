@@ -228,6 +228,7 @@ export default async function NewOrderPage({
             productLabel: `${variant.product.name} | ${variant.product.brand}`,
             size: variant.size,
             color: variant.color,
+            imagePath: variant.imagePath,
             stock: variant.stock,
             price: Number(variant.price),
           }))}

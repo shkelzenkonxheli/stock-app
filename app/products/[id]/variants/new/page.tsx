@@ -2,7 +2,14 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { saveProductImage } from "@/lib/product-images";
 import { prisma } from "@/lib/prisma";
+import {
+  buildBarcodeFromVariantId,
+  buildVariantSku,
+  ensureUniqueSku,
+  normalizeVariantCode,
+} from "@/lib/variant-codes";
 import { VariantRowsForm } from "./variant-rows-form";
 
 type NewProductVariantPageProps = {
@@ -18,6 +25,7 @@ async function createVariants(formData: FormData) {
 
   const productId = Number(formData.get("productId"));
   const rowsRaw = formData.get("rows")?.toString();
+  const file = formData.get("image");
 
   if (!productId || !rowsRaw) {
     return;
@@ -44,12 +52,18 @@ async function createVariants(formData: FormData) {
       const candidate = row as {
         size?: unknown;
         color?: unknown;
+        sku?: unknown;
+        barcode?: unknown;
+        imagePath?: unknown;
         stock?: unknown;
         price?: unknown;
       };
 
       const size = String(candidate.size ?? "").trim();
       const color = String(candidate.color ?? "").trim();
+      const sku = normalizeVariantCode(String(candidate.sku ?? ""));
+      const barcode = normalizeVariantCode(String(candidate.barcode ?? ""));
+      const imagePath = String(candidate.imagePath ?? "").trim() || null;
       const stock = Number(candidate.stock);
       const price = String(candidate.price ?? "").trim();
 
@@ -60,6 +74,9 @@ async function createVariants(formData: FormData) {
       return {
         size,
         color,
+        sku,
+        barcode,
+        imagePath,
         stock,
         price,
       };
@@ -70,18 +87,52 @@ async function createVariants(formData: FormData) {
     return;
   }
 
-  const existingVariants = await prisma.variant.findMany({
-    where: { productId },
+  const [existingProductVariants, existingVariantCodes] = await Promise.all([
+    prisma.variant.findMany({
+      where: { productId },
+      select: {
+        size: true,
+        color: true,
+        barcode: true,
+      },
+    }),
+    prisma.variant.findMany({
+      select: {
+        sku: true,
+        barcode: true,
+      },
+    }),
+  ]);
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
     select: {
-      size: true,
-      color: true,
+      name: true,
+      brand: true,
     },
   });
 
+  if (!product) {
+    return;
+  }
+
+  const uploadedImagePath =
+    file instanceof File ? await saveProductImage(productId, file) : null;
+
   const existingKeys = new Set(
-    existingVariants.map(
+    existingProductVariants.map(
       (variant) => `${variant.size}::${variant.color.toLowerCase()}`,
     ),
+  );
+  const usedSkus = new Set(
+    existingVariantCodes
+      .map((variant) => variant.sku)
+      .filter((sku): sku is string => Boolean(sku)),
+  );
+  const usedBarcodes = new Set(
+    existingVariantCodes
+      .map((variant) => variant.barcode)
+      .filter((barcode): barcode is string => Boolean(barcode)),
   );
 
   const uniqueRows = normalizedRows.filter((row, index, rows) => {
@@ -95,14 +146,43 @@ async function createVariants(formData: FormData) {
   });
 
   if (uniqueRows.length > 0) {
-    await prisma.variant.createMany({
-      data: uniqueRows.map((row) => ({
-        productId,
-        size: row.size,
-        color: row.color,
-        stock: row.stock,
-        price: row.price,
-      })),
+    await prisma.$transaction(async (tx) => {
+      for (const row of uniqueRows) {
+        const baseSku =
+          row.sku ??
+          buildVariantSku({
+            brand: product.brand,
+            productName: product.name,
+            size: row.size,
+            color: row.color,
+          });
+        const createdVariant = await tx.variant.create({
+          data: {
+            productId,
+            size: row.size,
+            color: row.color,
+            sku: ensureUniqueSku(baseSku, usedSkus),
+            imagePath: uploadedImagePath ?? row.imagePath,
+            stock: row.stock,
+            price: row.price,
+          },
+        });
+        const barcode =
+          row.barcode ?? buildBarcodeFromVariantId(createdVariant.id);
+
+        if (usedBarcodes.has(barcode)) {
+          throw new Error("Duplicate barcode detected.");
+        }
+
+        usedBarcodes.add(barcode);
+
+        await tx.variant.update({
+          where: { id: createdVariant.id },
+          data: {
+            barcode,
+          },
+        });
+      }
     });
   }
 
@@ -165,12 +245,6 @@ export default async function NewProductVariantPage({
             </Link>
           </div>
         </div>
-
-        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-900 shadow-sm">
-          Ketu shton variante reale me rreshta: p.sh. 41 / Red / 20 / 89.99,
-          pastaj shton rreshtin tjeter me +.
-        </div>
-
         <VariantRowsForm productId={product.id} action={createVariants} />
       </div>
     </main>

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { VariantsManager } from "./variants-manager";
 
 type ProductDetailsPageProps = {
   params: Promise<{
@@ -33,35 +33,6 @@ function StatCard({ label, value, hint }: StatCardProps) {
       </p>
       <p className="mt-2 text-sm text-slate-600">{hint}</p>
     </div>
-  );
-}
-
-type SectionCardProps = {
-  title: string;
-  description: string;
-  action?: ReactNode;
-  children: ReactNode;
-};
-
-function SectionCard({
-  title,
-  description,
-  action,
-  children,
-}: SectionCardProps) {
-  return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_16px_40px_rgba(15,23,42,0.06)]">
-      <div className="flex flex-col gap-4 border-b border-slate-200/80 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-            {title}
-          </h2>
-          <p className="mt-1 text-sm text-slate-600">{description}</p>
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -96,6 +67,85 @@ async function deleteVariant(formData: FormData) {
 
   await prisma.variant.delete({
     where: { id: variantId },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/orders/new");
+}
+
+async function bulkDeleteVariants(formData: FormData) {
+  "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
+
+  const productId = Number(formData.get("productId"));
+  const variantIdsRaw = formData.get("variantIds")?.toString();
+
+  if (!productId || !variantIdsRaw) {
+    return;
+  }
+
+  let parsedVariantIds: unknown;
+
+  try {
+    parsedVariantIds = JSON.parse(variantIdsRaw);
+  } catch {
+    return;
+  }
+
+  if (!Array.isArray(parsedVariantIds) || parsedVariantIds.length === 0) {
+    return;
+  }
+
+  const variantIds = parsedVariantIds
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  if (variantIds.length === 0) {
+    return;
+  }
+
+  const variants = await prisma.variant.findMany({
+    where: {
+      productId,
+      id: {
+        in: variantIds,
+      },
+    },
+    select: {
+      id: true,
+      orders: {
+        select: {
+          id: true,
+        },
+        take: 1,
+      },
+      items: {
+        select: {
+          id: true,
+        },
+        take: 1,
+      },
+    },
+  });
+
+  const deletableIds = variants
+    .filter((variant) => variant.orders.length === 0 && variant.items.length === 0)
+    .map((variant) => variant.id);
+
+  if (deletableIds.length === 0) {
+    return;
+  }
+
+  await prisma.variant.deleteMany({
+    where: {
+      productId,
+      id: {
+        in: deletableIds,
+      },
+    },
   });
 
   revalidatePath("/");
@@ -167,17 +217,25 @@ export default async function ProductDetailsPage({
                 {product.name}
               </h1>
               <p className="mt-2 text-base text-slate-600">{product.brand}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-                  {product.variants.length} variante
-                </span>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-                  {totalStock} cope ne stok
-                </span>
-              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                {product.variants.length} variante
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                {totalStock} cope ne stok
+              </span>
             </div>
 
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {canManageInventory ? (
+                <Link
+                  href={`/products/${product.id}/edit`}
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  Edito produktin
+                </Link>
+              ) : null}
               <Link
                 href="/products"
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -194,19 +252,6 @@ export default async function ProductDetailsPage({
               ) : null}
             </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <StatCard
-            label="Numrat aktiv"
-            value={sizes.length > 0 ? sizes.join(", ") : "-"}
-            hint={`${sizes.length} numra te regjistruar per kete model`}
-          />
-          <StatCard
-            label="Ngjyrat aktive"
-            value={colors.length > 0 ? colors.join(", ") : "-"}
-            hint={`${colors.length} ngjyra te lidhura me kete model`}
-          />
         </div>
 
         <div className="px-3 py-3 sm:px-4 sm:py-4">
@@ -278,145 +323,23 @@ export default async function ProductDetailsPage({
                 </p>
               </div>
 
-              <div className="grid gap-4 lg:hidden">
-                {filteredVariants.map((variant) => (
-                  <article
-                    key={variant.id}
-                    className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex min-w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-900">
-                          {variant.size}
-                        </span>
-                        <div>
-                          <p className="font-medium text-slate-900">{variant.color}</p>
-                          <p className="mt-1 text-sm text-slate-500">
-                            Variant #{variant.id}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="inline-flex min-w-16 items-center justify-center rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
-                        {variant.stock}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">
-                      <span className="font-medium text-slate-600">Cmimi</span>
-                      <span className="font-semibold tabular-nums text-slate-900">
-                        {Number(variant.price).toFixed(2)} EUR
-                      </span>
-                    </div>
-
-                    {canManageInventory ? (
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <Link
-                          href={`/products/${product.id}/variants/${variant.id}/edit`}
-                          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                        >
-                          Edito
-                        </Link>
-                        <form action={deleteVariant}>
-                          <input type="hidden" name="variantId" value={variant.id} />
-                          <input type="hidden" name="productId" value={product.id} />
-                          <button
-                            type="submit"
-                            className="inline-flex w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100"
-                          >
-                            Fshi
-                          </button>
-                        </form>
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-
-              <div className="hidden overflow-hidden rounded-2xl border border-slate-200 lg:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left">
-                      <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        <th className="px-4 py-3.5 sm:px-5">Numri</th>
-                        <th className="px-4 py-3.5 sm:px-5">Ngjyra</th>
-                        <th className="px-4 py-3.5 text-right sm:px-5">
-                          Stoku
-                        </th>
-                        <th className="px-4 py-3.5 text-right sm:px-5">
-                          Cmimi
-                        </th>
-                        {canManageInventory ? (
-                          <th className="px-4 py-3.5 text-right sm:px-5">
-                            Veprime
-                          </th>
-                        ) : null}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {filteredVariants.map((variant) => (
-                        <tr
-                          key={variant.id}
-                          className="transition hover:bg-slate-50/80"
-                        >
-                          <td className="px-4 py-4 sm:px-5">
-                            <span className="inline-flex min-w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-900">
-                              {variant.size}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 sm:px-5">
-                            <div className="flex items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-                              <span className="font-medium text-slate-800">
-                                {variant.color}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-right sm:px-5">
-                            <span className="inline-flex min-w-16 items-center justify-center rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
-                              {variant.stock}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-right sm:px-5">
-                            <span className="font-semibold tabular-nums text-slate-900">
-                              {Number(variant.price).toFixed(2)} EUR
-                            </span>
-                          </td>
-                          {canManageInventory ? (
-                            <td className="px-4 py-4 text-right sm:px-5">
-                              <div className="flex justify-end gap-2">
-                                <Link
-                                  href={`/products/${product.id}/variants/${variant.id}/edit`}
-                                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                                >
-                                  Edito
-                                </Link>
-                                <form action={deleteVariant}>
-                                  <input
-                                    type="hidden"
-                                    name="variantId"
-                                    value={variant.id}
-                                  />
-                                  <input
-                                    type="hidden"
-                                    name="productId"
-                                    value={product.id}
-                                  />
-                                  <button
-                                    type="submit"
-                                    className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100"
-                                  >
-                                    Fshi
-                                  </button>
-                                </form>
-                              </div>
-                            </td>
-                          ) : null}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <VariantsManager
+                productId={product.id}
+                productName={product.name}
+                canManageInventory={canManageInventory}
+                variants={filteredVariants.map((variant) => ({
+                  id: variant.id,
+                  size: variant.size,
+                  color: variant.color,
+                  sku: variant.sku,
+                  barcode: variant.barcode,
+                  imagePath: variant.imagePath,
+                  stock: variant.stock,
+                  price: Number(variant.price),
+                }))}
+                deleteVariantAction={deleteVariant}
+                bulkDeleteAction={bulkDeleteVariants}
+              />
               {filteredVariants.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-10 text-center">
                   <p className="text-base font-medium text-slate-900">

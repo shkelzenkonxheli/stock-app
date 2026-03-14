@@ -9,6 +9,7 @@ type OrderVariant = {
   productLabel: string;
   size: string;
   color: string;
+  imagePath: string | null;
   stock: number;
   price: number;
 };
@@ -298,16 +299,27 @@ export function OrderForm({ action, variants }: OrderFormProps) {
                 </div>
 
                 {selectedVariant ? (
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-800">
-                      Nr {selectedVariant.size} / {selectedVariant.color}
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-medium text-slate-700">
-                      stok {selectedVariant.availableStock}
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-medium text-slate-700">
-                      {selectedVariant.price.toFixed(2)} EUR
-                    </span>
+                  <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:flex-row sm:items-center">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {selectedVariant.imagePath ? (
+                        <img
+                          src={selectedVariant.imagePath}
+                          alt={`${selectedVariant.productLabel} ${selectedVariant.color}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-800">
+                        Nr {selectedVariant.size} / {selectedVariant.color}
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700">
+                        stok {selectedVariant.availableStock}
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700">
+                        {selectedVariant.price.toFixed(2)} EUR
+                      </span>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -323,11 +335,22 @@ export function OrderForm({ action, variants }: OrderFormProps) {
             {selectedItems.map((item, index) => (
               <div
                 key={`${item.id}-${index}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-100 bg-white/90 px-3 py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-100 bg-white/90 px-3 py-2 text-sm"
               >
-                <p className="font-medium text-slate-900">
-                  {item.productLabel} | Nr {item.size} | {item.color}
-                </p>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                    {item.imagePath ? (
+                      <img
+                        src={item.imagePath}
+                        alt={`${item.productLabel} ${item.color}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <p className="font-medium text-slate-900">
+                    {item.productLabel} | Nr {item.size} | {item.color}
+                  </p>
+                </div>
                 <p className="text-slate-600">
                   {item.quantity} cope | {item.price.toFixed(2)} EUR
                 </p>

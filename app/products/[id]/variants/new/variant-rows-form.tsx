@@ -1,11 +1,15 @@
 "use client";
 
+import { ImageFileInput } from "@/app/components/image-file-input";
 import { useState } from "react";
 
 type VariantRow = {
   id: string;
   size: string;
   color: string;
+  sku: string;
+  barcode: string;
+  imagePath: string;
   stock: string;
   price: string;
 };
@@ -19,6 +23,9 @@ const createEmptyRow = (): VariantRow => ({
   id: crypto.randomUUID(),
   size: "",
   color: "",
+  sku: "",
+  barcode: "",
+  imagePath: "",
   stock: "",
   price: "",
 });
@@ -27,15 +34,16 @@ const cloneRow = (row: VariantRow): VariantRow => ({
   id: crypto.randomUUID(),
   size: row.size,
   color: row.color,
+  sku: row.sku,
+  barcode: row.barcode,
+  imagePath: row.imagePath,
   stock: row.stock,
   price: row.price,
 });
 
-export function VariantRowsForm({
-  productId,
-  action,
-}: VariantRowsFormProps) {
+export function VariantRowsForm({ productId, action }: VariantRowsFormProps) {
   const [rows, setRows] = useState<VariantRow[]>([createEmptyRow()]);
+  const [showHint, setShowHint] = useState(true);
 
   const updateRow = (
     rowId: string,
@@ -72,9 +80,12 @@ export function VariantRowsForm({
   };
 
   const serializedRows = JSON.stringify(
-    rows.map(({ size, color, stock, price }) => ({
+    rows.map(({ size, color, sku, barcode, imagePath, stock, price }) => ({
       size,
       color,
+      sku,
+      barcode,
+      imagePath,
       stock,
       price,
     })),
@@ -85,97 +96,120 @@ export function VariantRowsForm({
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="rows" value={serializedRows} />
 
+      <ImageFileInput
+        id="image"
+        name="image"
+        label="Foto per kete grup variantesh"
+        helperText="Nese zgjedh nje foto ketu, te gjithe numrat qe po shton ne kete submit do ta marrin automatikisht."
+      />
+
       <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50/90 text-left text-slate-600">
-            <tr>
-              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
-                Numri
-              </th>
-              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
-                Ngjyra
-              </th>
-              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
-                Stoku
-              </th>
-              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
-                Cmimi
-              </th>
-              <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
-                Hiq
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {rows.map((row, index) => (
-              <tr key={row.id} className="transition hover:bg-amber-50/30">
-                <td className="px-4 py-3">
-                  <input
-                    type="text"
-                    value={row.size}
-                    onChange={(event) =>
-                      updateRow(row.id, "size", event.target.value)
-                    }
-                    placeholder={index === 0 ? "41" : "42"}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="text"
-                    value={row.color}
-                    onChange={(event) =>
-                      updateRow(row.id, "color", event.target.value)
-                    }
-                    placeholder={index === 0 ? "Red" : "Black"}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.stock}
-                    onChange={(event) =>
-                      updateRow(row.id, "stock", event.target.value)
-                    }
-                    placeholder="20"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={row.price}
-                    onChange={(event) =>
-                      updateRow(row.id, "price", event.target.value)
-                    }
-                    placeholder="89.99"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.id)}
-                    disabled={rows.length === 1}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Hiq
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-245 divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50/90 text-left text-slate-600">
+              <tr>
+                <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                  Numri
+                </th>
+                <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                  Ngjyra
+                </th>
+
+                <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                  Stoku
+                </th>
+                <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                  Cmimi
+                </th>
+                <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
+                  Hiq
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {rows.map((row, index) => (
+                <tr key={row.id} className="transition hover:bg-amber-50/30">
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      value={row.size}
+                      onChange={(event) =>
+                        updateRow(row.id, "size", event.target.value)
+                      }
+                      placeholder={index === 0 ? "41" : "42"}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      value={row.color}
+                      onChange={(event) =>
+                        updateRow(row.id, "color", event.target.value)
+                      }
+                      placeholder={index === 0 ? "Red" : "Black"}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
+                    />
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.stock}
+                      onChange={(event) =>
+                        updateRow(row.id, "stock", event.target.value)
+                      }
+                      placeholder="20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={row.price}
+                      onChange={(event) =>
+                        updateRow(row.id, "price", event.target.value)
+                      }
+                      placeholder="89.99"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.id)}
+                      disabled={rows.length === 1}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Hiq
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-        Kur shtyp `+ Shto rresht`, rreshti i fundit kopjohet automatikisht.
-        Zakonisht mjafton te nderrosh vetem numrin.
-      </div>
+      {showHint ? (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+          <p>
+            Kur shtyp `+ Shto rresht`, rreshti i fundit kopjohet automatikisht.
+            Zakonisht mjafton te nderrosh vetem numrin.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowHint(false)}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+            aria-label="Mbyll mesazhin"
+          >
+            x
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between">
         <button

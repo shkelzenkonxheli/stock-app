@@ -163,6 +163,7 @@ export default async function OrdersPage() {
                           brand: item.variant.product.brand,
                           size: item.variant.size,
                           color: item.variant.color,
+                          imagePath: item.variant.imagePath,
                           quantity: item.quantity,
                         }))
                       : order.variant
@@ -173,6 +174,7 @@ export default async function OrdersPage() {
                               brand: order.variant.product.brand,
                               size: order.variant.size,
                               color: order.variant.color,
+                              imagePath: order.variant.imagePath,
                               quantity: order.quantity ?? 0,
                             },
                           ]
@@ -253,6 +255,7 @@ export default async function OrdersPage() {
                             brand: item.brand,
                             size: item.size,
                             color: item.color,
+                            imagePath: item.imagePath,
                             quantity: item.quantity,
                           }))}
                         />
@@ -351,6 +354,7 @@ export default async function OrdersPage() {
                             brand: item.variant.product.brand,
                             size: item.variant.size,
                             color: item.variant.color,
+                            imagePath: item.variant.imagePath,
                             quantity: item.quantity,
                           }))
                         : order.variant
@@ -361,6 +365,7 @@ export default async function OrdersPage() {
                                 brand: order.variant.product.brand,
                                 size: order.variant.size,
                                 color: order.variant.color,
+                                imagePath: order.variant.imagePath,
                                 quantity: order.quantity ?? 0,
                               },
                             ]
@@ -434,6 +439,7 @@ export default async function OrdersPage() {
                                 brand: item.brand,
                                 size: item.size,
                                 color: item.color,
+                                imagePath: item.imagePath,
                                 quantity: item.quantity,
                               }))}
                             />

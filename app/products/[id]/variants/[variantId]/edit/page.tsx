@@ -2,7 +2,15 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { ImageFileInput } from "@/app/components/image-file-input";
+import { saveProductImage } from "@/lib/product-images";
 import { prisma } from "@/lib/prisma";
+import {
+  buildBarcodeFromVariantId,
+  buildVariantSku,
+  ensureUniqueSku,
+  normalizeVariantCode,
+} from "@/lib/variant-codes";
 
 type EditVariantPageProps = {
   params: Promise<{
@@ -10,6 +18,55 @@ type EditVariantPageProps = {
     variantId: string;
   }>;
 };
+
+async function uploadVariantImage(formData: FormData) {
+  "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
+
+  const productId = Number(formData.get("productId"));
+  const variantId = Number(formData.get("variantId"));
+  const file = formData.get("image");
+
+  if (!productId || !variantId || !(file instanceof File)) {
+    return;
+  }
+
+  const imagePath = await saveProductImage(productId, file);
+
+  if (!imagePath) {
+    return;
+  }
+
+  const variant = await prisma.variant.findUnique({
+    where: { id: variantId },
+    select: {
+      id: true,
+      productId: true,
+      color: true,
+    },
+  });
+
+  if (!variant || variant.productId !== productId) {
+    return;
+  }
+
+  await prisma.variant.updateMany({
+    where: {
+      productId,
+      color: variant.color,
+    },
+    data: {
+      imagePath,
+    },
+  });
+
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}`);
+  revalidatePath(`/products/${productId}/variants/${variantId}/edit`);
+
+  redirect(`/products/${productId}/variants/${variantId}/edit`);
+}
 
 async function updateVariant(formData: FormData) {
   "use server";
@@ -20,6 +77,8 @@ async function updateVariant(formData: FormData) {
   const variantId = Number(formData.get("variantId"));
   const size = formData.get("size")?.toString().trim();
   const color = formData.get("color")?.toString().trim();
+  const skuInput = normalizeVariantCode(formData.get("sku")?.toString());
+  const barcode = normalizeVariantCode(formData.get("barcode")?.toString());
   const stock = Number(formData.get("stock"));
   const price = formData.get("price")?.toString().trim();
 
@@ -35,11 +94,62 @@ async function updateVariant(formData: FormData) {
     return;
   }
 
+  const variant = await prisma.variant.findUnique({
+    where: { id: variantId },
+    include: {
+      product: true,
+    },
+  });
+
+  if (!variant || variant.productId !== productId) {
+    return;
+  }
+
+  const otherVariants = await prisma.variant.findMany({
+    where: {
+      productId,
+      NOT: {
+        id: variantId,
+      },
+    },
+    select: {
+      sku: true,
+      barcode: true,
+    },
+  });
+
+  const usedSkus = new Set(
+    otherVariants
+      .map((item) => item.sku)
+      .filter((sku): sku is string => Boolean(sku)),
+  );
+  const baseSku =
+    skuInput ??
+    buildVariantSku({
+      brand: variant.product.brand,
+      productName: variant.product.name,
+      size,
+      color,
+    });
+  const sku = ensureUniqueSku(baseSku, usedSkus);
+  const usedBarcodes = new Set(
+    otherVariants
+      .map((item) => item.barcode)
+      .filter((barcode): barcode is string => Boolean(barcode)),
+  );
+  const nextBarcode = barcode ?? buildBarcodeFromVariantId(variant.id);
+
+  if (usedBarcodes.has(nextBarcode)) {
+    return;
+  }
+
   await prisma.variant.update({
     where: { id: variantId },
     data: {
       size,
       color,
+      sku,
+      barcode: nextBarcode,
       stock,
       price,
     },
@@ -109,7 +219,27 @@ export default async function EditVariantPage({
           </div>
         </div>
 
-        <form action={updateVariant} className="mt-8 space-y-5">
+        <form
+          action={uploadVariantImage}
+          className="mt-8 space-y-3"
+        >
+          <input type="hidden" name="productId" value={productId} />
+          <input type="hidden" name="variantId" value={variant.id} />
+          <ImageFileInput
+            id="variant-image"
+            name="image"
+            label="Foto e variantit"
+            helperText="Zgjedh nje foto dhe kliko Upload. Fotoja do t'u vendoset te gjithe numrave me te njejten ngjyre."
+          />
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            Upload Foto
+          </button>
+        </form>
+
+        <form action={updateVariant} className="mt-5 space-y-5">
           <input type="hidden" name="productId" value={productId} />
           <input type="hidden" name="variantId" value={variant.id} />
 
@@ -179,6 +309,42 @@ export default async function EditVariantPage({
                 min="0"
                 step="0.01"
                 defaultValue={Number(variant.price).toFixed(2)}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label
+                htmlFor="sku"
+                className="block text-sm font-medium text-slate-800"
+              >
+                SKU
+              </label>
+              <input
+                id="sku"
+                name="sku"
+                type="text"
+                defaultValue={variant.sku ?? ""}
+                placeholder="Leje bosh per gjenerim automatik"
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="barcode"
+                className="block text-sm font-medium text-slate-800"
+              >
+                Barcode
+              </label>
+              <input
+                id="barcode"
+                name="barcode"
+                type="text"
+                defaultValue={variant.barcode ?? ""}
+                placeholder="Opsionale"
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
               />
             </div>

@@ -1,6 +1,41 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+async function deleteProduct(formData: FormData) {
+  "use server";
+
+  const productId = Number(formData.get("productId"));
+
+  if (!productId) {
+    return;
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          variants: true,
+        },
+      },
+    },
+  });
+
+  if (!product || product._count.variants > 0) {
+    return;
+  }
+
+  await prisma.product.delete({
+    where: { id: productId },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/products");
+}
 
 export default async function ProductsPage() {
   const currentUser = await requireUser();
@@ -142,12 +177,33 @@ export default async function ProductsPage() {
                         </div>
                       </div>
 
-                      <Link
-                        href={`/products/${product.id}`}
-                        className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                      >
-                        Menaxho
-                      </Link>
+                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <Link
+                          href={`/products/${product.id}`}
+                          className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                        >
+                          Menaxho
+                        </Link>
+                        {canManageInventory ? (
+                          <Link
+                            href={`/products/${product.id}/edit`}
+                            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                          >
+                            Edito
+                          </Link>
+                        ) : null}
+                        {canManageInventory && product.variants.length === 0 ? (
+                          <ConfirmActionForm
+                            action={deleteProduct}
+                            hiddenFields={[
+                              { name: "productId", value: product.id },
+                            ]}
+                            confirmMessage="A je i sigurt qe don ta fshish kete produkt?"
+                            buttonLabel="Fshi"
+                            className="inline-flex w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                          />
+                        ) : null}
+                      </div>
                     </article>
                   );
                 })}
@@ -230,12 +286,33 @@ export default async function ProductsPage() {
                               : `${minPrice.toFixed(2)} - ${maxPrice?.toFixed(2)} EUR`}
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <Link
-                            href={`/products/${product.id}`}
-                            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                          >
-                            Menaxho
-                          </Link>
+                          <div className="flex justify-end gap-2">
+                            <Link
+                              href={`/products/${product.id}`}
+                              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                            >
+                              Menaxho
+                            </Link>
+                            {canManageInventory ? (
+                              <Link
+                                href={`/products/${product.id}/edit`}
+                                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                              >
+                                Edito
+                              </Link>
+                            ) : null}
+                            {canManageInventory && product.variants.length === 0 ? (
+                              <ConfirmActionForm
+                                action={deleteProduct}
+                                hiddenFields={[
+                                  { name: "productId", value: product.id },
+                                ]}
+                                confirmMessage="A je i sigurt qe don ta fshish kete produkt?"
+                                buttonLabel="Fshi"
+                                className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 font-semibold text-rose-700 transition hover:bg-rose-100"
+                              />
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );

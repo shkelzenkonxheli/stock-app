@@ -8,6 +8,7 @@ type OrderItem = {
   brand: string;
   size: string;
   color: string;
+  imagePath?: string | null;
   quantity: number;
 };
 
@@ -106,8 +107,21 @@ export function OrderDetailsModal({
                   key={item.id}
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
                 >
-                  <p className="font-semibold text-slate-950">{item.name}</p>
-                  <p className="mt-1 text-sm text-slate-600">{item.brand}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      {item.imagePath ? (
+                        <img
+                          src={item.imagePath}
+                          alt={`${item.name} ${item.color}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-950">{item.name}</p>
+                      <p className="mt-1 text-sm text-slate-600">{item.brand}</p>
+                    </div>
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm">
                     <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-700">
                       Nr {item.size}

@@ -27,6 +27,9 @@ model Variant {
   productId Int
   size      String
   color     String
+  sku       String?  @unique
+  barcode   String?  @unique
+  imagePath String?
   stock     Int      @default(0)
   price     Decimal  @db.Decimal(10, 2)
   createdAt DateTime @default(now())
