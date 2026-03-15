@@ -48,8 +48,8 @@ export default async function RootLayout({
         <div className="min-h-screen">
           {currentUser ? (
             <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-              <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-                <div className="flex items-center gap-3">
+              <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+                <div className="flex min-w-0 items-center gap-3">
                   <Link
                     href="/"
                     className="text-lg font-semibold tracking-tight text-slate-950"
@@ -61,10 +61,10 @@ export default async function RootLayout({
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex shrink-0 items-center gap-3">
                   <div className="flex items-center gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="max-w-[120px] truncate text-sm font-medium text-slate-900 sm:max-w-none">
                         {currentUser.name}
                       </p>
                     </div>
