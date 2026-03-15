@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VariantsManager } from "./variants-manager";
@@ -15,26 +16,6 @@ type ProductDetailsPageProps = {
     stock?: string;
   }>;
 };
-
-type StatCardProps = {
-  label: string;
-  value: string;
-  hint: string;
-};
-
-function StatCard({ label, value, hint }: StatCardProps) {
-  return (
-    <div className="rounded-3xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-slate-600">{hint}</p>
-    </div>
-  );
-}
 
 async function deleteVariant(formData: FormData) {
   "use server";
@@ -167,44 +148,87 @@ export default async function ProductDetailsPage({
     notFound();
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    include: {
-      variants: {
-        orderBy: [{ size: "asc" }, { color: "asc" }],
+  const selectedSize = resolvedSearchParams?.size?.trim() || "";
+  const selectedColor = resolvedSearchParams?.color?.trim() || "";
+  const selectedStock = resolvedSearchParams?.stock?.trim() || "";
+
+  const variantsWhere: Prisma.VariantWhereInput = {
+    productId,
+    ...(selectedSize ? { size: selectedSize } : {}),
+    ...(selectedColor ? { color: selectedColor } : {}),
+    ...(selectedStock === "in"
+      ? {
+          stock: {
+            gt: 0,
+          },
+        }
+      : {}),
+    ...(selectedStock === "low"
+      ? {
+          stock: {
+            gt: 0,
+            lte: 5,
+          },
+        }
+      : {}),
+    ...(selectedStock === "out"
+      ? {
+          stock: 0,
+        }
+      : {}),
+  };
+
+  const [product, allVariants, filteredVariants] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        name: true,
+        brand: true,
       },
-    },
-  });
+    }),
+    prisma.variant.findMany({
+      where: {
+        productId,
+      },
+      select: {
+        id: true,
+        size: true,
+        color: true,
+        sku: true,
+        barcode: true,
+        imagePath: true,
+        stock: true,
+        price: true,
+      },
+      orderBy: [{ size: "asc" }, { color: "asc" }],
+    }),
+    prisma.variant.findMany({
+      where: variantsWhere,
+      select: {
+        id: true,
+        size: true,
+        color: true,
+        sku: true,
+        barcode: true,
+        imagePath: true,
+        stock: true,
+        price: true,
+      },
+      orderBy: [{ size: "asc" }, { color: "asc" }],
+    }),
+  ]);
 
   if (!product) {
     notFound();
   }
 
-  const totalStock = product.variants.reduce(
+  const totalStock = allVariants.reduce(
     (sum, variant) => sum + variant.stock,
     0,
   );
-  const colors = [...new Set(product.variants.map((variant) => variant.color))];
-  const sizes = [...new Set(product.variants.map((variant) => variant.size))];
-  const priceValues = product.variants.map((variant) => Number(variant.price));
-  const lowestPrice =
-    priceValues.length > 0 ? Math.min(...priceValues).toFixed(2) : null;
-  const highestPrice =
-    priceValues.length > 0 ? Math.max(...priceValues).toFixed(2) : null;
-  const selectedSize = resolvedSearchParams?.size?.trim() || "";
-  const selectedColor = resolvedSearchParams?.color?.trim() || "";
-  const selectedStock = resolvedSearchParams?.stock?.trim() || "";
-  const filteredVariants = product.variants.filter((variant) => {
-    const matchesSize = !selectedSize || variant.size === selectedSize;
-    const matchesColor = !selectedColor || variant.color === selectedColor;
-    const matchesStock =
-      !selectedStock ||
-      (selectedStock === "in" && variant.stock > 0) ||
-      (selectedStock === "low" && variant.stock > 0 && variant.stock <= 5) ||
-      (selectedStock === "out" && variant.stock === 0);
-
-    return matchesSize && matchesColor && matchesStock;
-  });
+  const colors = [...new Set(allVariants.map((variant) => variant.color))];
+  const sizes = [...new Set(allVariants.map((variant) => variant.size))];
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
 
   return (
@@ -220,7 +244,7 @@ export default async function ProductDetailsPage({
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-600">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-                {product.variants.length} variante
+                {allVariants.length} variante
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
                 {totalStock} cope ne stok
@@ -255,7 +279,7 @@ export default async function ProductDetailsPage({
         </div>
 
         <div className="px-3 py-3 sm:px-4 sm:py-4">
-          {product.variants.length === 0 ? (
+          {allVariants.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-10 text-center">
               <p className="text-base font-medium text-slate-900">
                 Ky produkt ende nuk ka variante
@@ -317,7 +341,7 @@ export default async function ProductDetailsPage({
                   </span>{" "}
                   nga{" "}
                   <span className="font-semibold text-slate-950">
-                    {product.variants.length}
+                    {allVariants.length}
                   </span>{" "}
                   variante
                 </p>

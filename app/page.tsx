@@ -12,14 +12,7 @@ type Tile = {
   disabled?: boolean;
 };
 
-function DashboardTile({
-  title,
-  subtitle,
-  href,
-  color,
-  icon,
-  disabled,
-}: Tile) {
+function DashboardTile({ title, subtitle, href, color, icon, disabled }: Tile) {
   const content = (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 text-white ring-1 ring-white/20 backdrop-blur-sm sm:h-14 sm:w-14">
@@ -40,16 +33,14 @@ function DashboardTile({
 
   if (disabled || !href) {
     return (
-      <div className={`${baseClassName} opacity-80 saturate-75`}>
-        {content}
-      </div>
+      <div className={`${baseClassName} opacity-80 saturate-75`}>{content}</div>
     );
   }
 
   return (
     <Link
       href={href}
-      className={`${baseClassName} transition duration-200 hover:scale-[1.03] hover:shadow-[0_22px_42px_rgba(15,23,42,0.24)]`}
+      className={`${baseClassName} cursor-pointer`}
       style={{ WebkitTapHighlightColor: "transparent" }}
     >
       {content}
@@ -76,7 +67,10 @@ export default async function Home() {
       color: "bg-sky-500",
       visible: true,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="M4 7h16M4 12h16M4 17h16" />
         </svg>
       ),
@@ -88,7 +82,10 @@ export default async function Home() {
       color: "bg-emerald-500",
       visible: canManageInventory,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
       ),
@@ -100,7 +97,10 @@ export default async function Home() {
       color: "bg-orange-500",
       visible: canManageOrders,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="M7 6h10M7 12h10M7 18h6" />
         </svg>
       ),
@@ -112,7 +112,10 @@ export default async function Home() {
       color: "bg-rose-500",
       visible: canCreateOrders,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
       ),
@@ -124,7 +127,10 @@ export default async function Home() {
       visible: canManageInventory,
       disabled: true,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="m12 19 6-6M12 19l-6-6M12 5v14" />
         </svg>
       ),
@@ -136,7 +142,10 @@ export default async function Home() {
       visible: canManageOrders,
       disabled: true,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <path d="m12 5 6 6M12 5 6 11M12 19V5" />
         </svg>
       ),
@@ -148,7 +157,10 @@ export default async function Home() {
       color: "bg-indigo-500",
       visible: canManageUsers,
       icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-[1.8]">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c0 .67.39 1.28 1 1.51H21a2 2 0 0 1 0 4h-.09c-.61.23-1 .84-1 1.49Z" />
         </svg>
@@ -163,9 +175,6 @@ export default async function Home() {
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
         <section className="w-full rounded-[28px] border border-white/80 bg-white/72 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur sm:rounded-[32px] sm:p-5">
           <div className="mb-4 text-center sm:mb-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 sm:text-xs">
-              Paneli Kryesor
-            </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
               Menaxhimi i Stokut
             </h1>

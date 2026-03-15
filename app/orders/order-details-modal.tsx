@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef } from "react";
+import { UploadedImage } from "@/app/components/uploaded-image";
 
 type OrderItem = {
   id: number;
@@ -17,6 +18,8 @@ type OrderDetailsModalProps = {
   customerName: string;
   phone: string;
   sourceLabel: string;
+  createdAtDateLabel: string;
+  createdAtTimeLabel: string;
   reference: string | null;
   notes: string | null;
   items: OrderItem[];
@@ -27,6 +30,8 @@ export function OrderDetailsModal({
   customerName,
   phone,
   sourceLabel,
+  createdAtDateLabel,
+  createdAtTimeLabel,
   reference,
   notes,
   items,
@@ -76,12 +81,21 @@ export function OrderDetailsModal({
         </div>
 
         <div className="space-y-5 px-5 py-5 sm:px-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Burimi
               </p>
               <p className="mt-2 font-semibold text-slate-950">{sourceLabel}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Koha
+              </p>
+              <p className="mt-2 font-semibold text-slate-950">
+                {createdAtDateLabel}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{createdAtTimeLabel}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -110,7 +124,7 @@ export function OrderDetailsModal({
                   <div className="flex items-start gap-3">
                     <div className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                       {item.imagePath ? (
-                        <img
+                        <UploadedImage
                           src={item.imagePath}
                           alt={`${item.name} ${item.color}`}
                           className="h-full w-full object-cover"

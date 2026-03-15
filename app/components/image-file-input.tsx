@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { UploadedImage } from "@/app/components/uploaded-image";
 
 type ImageFileInputProps = {
   id: string;
   name: string;
   label: string;
   helperText?: string;
+  onHasFileChange?: (hasFile: boolean) => void;
 };
 
 export function ImageFileInput({
@@ -14,6 +16,7 @@ export function ImageFileInput({
   name,
   label,
   helperText,
+  onHasFileChange,
 }: ImageFileInputProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -45,16 +48,22 @@ export function ImageFileInput({
 
             if (!file) {
               setPreviewUrl(null);
+              onHasFileChange?.(false);
               return;
             }
 
             setPreviewUrl(URL.createObjectURL(file));
+            onHasFileChange?.(true);
           }}
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2.5 file:font-medium file:text-white hover:file:bg-slate-800"
         />
         {previewUrl ? (
           <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+            <UploadedImage
+              src={previewUrl}
+              alt="Preview"
+              className="h-full w-full object-cover"
+            />
           </div>
         ) : null}
       </div>

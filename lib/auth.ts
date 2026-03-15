@@ -29,13 +29,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   });
 
   if (!session) {
-    cookieStore.delete(SESSION_COOKIE);
     return null;
   }
 
   if (session.expiresAt <= new Date()) {
     await prisma.session.delete({ where: { token: sessionToken } }).catch(() => null);
-    cookieStore.delete(SESSION_COOKIE);
     return null;
   }
 

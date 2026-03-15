@@ -1,5 +1,12 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
+
+export class ProductImageUploadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProductImageUploadError";
+  }
+}
 
 function sanitizeFileSegment(value: string) {
   return value
@@ -8,20 +15,6 @@ function sanitizeFileSegment(value: string) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
-}
-
-function imageDirectory(productId: number) {
-  return path.join(
-    process.cwd(),
-    "public",
-    "uploads",
-    "products",
-    String(productId),
-  );
-}
-
-function imagePublicPath(productId: number, fileName: string) {
-  return `/uploads/products/${productId}/${fileName}`;
 }
 
 function extensionFromFile(file: File) {
@@ -44,23 +37,38 @@ function extensionFromFile(file: File) {
 }
 
 export async function listProductImages(productId: number) {
-  try {
-    const entries = await readdir(imageDirectory(productId), {
-      withFileTypes: true,
-    });
+  void productId;
+  return [];
+}
 
-    return entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((fileName) => /\.(png|jpe?g|webp|avif)$/i.test(fileName))
-      .sort((left, right) => left.localeCompare(right))
-      .map((fileName) => ({
-        label: fileName,
-        value: imagePublicPath(productId, fileName),
-      }));
-  } catch {
-    return [];
+function cloudinaryConfig() {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new ProductImageUploadError(
+      "Mungojne kredencialet e Cloudinary ne .env.",
+    );
   }
+
+  return { cloudName, apiKey, apiSecret };
+}
+
+function buildCloudinarySignature(
+  params: Record<string, string | number>,
+  apiSecret: string,
+) {
+  const sortedEntries = Object.entries(params).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const signatureBase = sortedEntries
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+
+  return createHash("sha1")
+    .update(`${signatureBase}${apiSecret}`)
+    .digest("hex");
 }
 
 export async function saveProductImage(productId: number, file: File) {
@@ -69,20 +77,64 @@ export async function saveProductImage(productId: number, file: File) {
   }
 
   if (!file.type.startsWith("image/")) {
-    return null;
+    throw new ProductImageUploadError("File i zgjedhur nuk eshte foto valide.");
   }
 
-  const directory = imageDirectory(productId);
-  await mkdir(directory, { recursive: true });
+  const config = cloudinaryConfig();
+
+  if (!config) {
+    return null;
+  }
 
   const originalBase = path.basename(file.name, path.extname(file.name));
   const safeBase = sanitizeFileSegment(originalBase) || "image";
   const extension = extensionFromFile(file);
-  const fileName = `${Date.now()}-${safeBase}${extension}`;
-  const filePath = path.join(directory, fileName);
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const timestamp = Math.floor(Date.now() / 1000);
+  const publicId = `products/${productId}/${Date.now()}-${safeBase}`.replace(
+    new RegExp(`${extension.replace(".", "\\.")}$`),
+    "",
+  );
+  const signature = buildCloudinarySignature(
+    {
+      public_id: publicId,
+      timestamp,
+    },
+    config.apiSecret,
+  );
+  const formData = new FormData();
 
-  await writeFile(filePath, buffer);
+  formData.append("file", file);
+  formData.append("api_key", config.apiKey);
+  formData.append("timestamp", String(timestamp));
+  formData.append("public_id", publicId);
+  formData.append("signature", signature);
 
-  return imagePublicPath(productId, fileName);
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    const errorResult = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    const errorMessage =
+      errorResult?.error?.message ||
+      "Ngarkimi i fotos ne Cloudinary deshtoi.";
+
+    throw new ProductImageUploadError(errorMessage);
+  }
+
+  const result = (await response.json()) as { secure_url?: string };
+
+  if (!result.secure_url) {
+    throw new ProductImageUploadError(
+      "Cloudinary nuk ktheu URL per foton e ngarkuar.",
+    );
+  }
+
+  return result.secure_url;
 }

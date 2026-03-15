@@ -1,0 +1,72 @@
+"use client";
+
+import { useState } from "react";
+import { ImageFileInput } from "@/app/components/image-file-input";
+import { UploadedImage } from "@/app/components/uploaded-image";
+
+type VariantImageUploadFormProps = {
+  action: (formData: FormData) => void | Promise<void>;
+  productId: number;
+  variantId: number;
+  imagePath: string | null;
+  productName: string;
+  color: string;
+  errorMessage?: string | null;
+};
+
+export function VariantImageUploadForm({
+  action,
+  productId,
+  variantId,
+  imagePath,
+  productName,
+  color,
+  errorMessage,
+}: VariantImageUploadFormProps) {
+  const [hasFile, setHasFile] = useState(false);
+
+  return (
+    <form action={action} className="mt-8 space-y-3">
+      <input type="hidden" name="productId" value={productId} />
+      <input type="hidden" name="variantId" value={variantId} />
+      {errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {errorMessage}
+        </div>
+      ) : null}
+      {imagePath ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+          <p className="mb-3 text-sm font-medium text-slate-800">Foto aktuale</p>
+          <a
+            href={imagePath}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2 transition hover:border-slate-300 hover:shadow-sm"
+          >
+            <UploadedImage
+              src={imagePath}
+              alt={`${productName} ${color}`}
+              className="h-16 w-16 rounded-xl object-cover"
+            />
+            <span className="text-sm text-slate-600">Kliko per ta hapur</span>
+          </a>
+        </div>
+      ) : null}
+      <ImageFileInput
+        id="variant-image"
+        name="image"
+        label="Foto e variantit"
+        helperText="Zgjedh nje foto dhe kliko Upload. Fotoja do t'u vendoset te gjithe numrave me te njejten ngjyre."
+        onHasFileChange={setHasFile}
+      />
+      {hasFile ? (
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+        >
+          Upload Foto
+        </button>
+      ) : null}
+    </form>
+  );
+}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
+import { UploadedImage } from "@/app/components/uploaded-image";
 
 type VariantItem = {
   id: number;
@@ -104,7 +105,7 @@ export function VariantsManager({
                       rel="noreferrer"
                       className="block h-full w-full"
                     >
-                      <img
+                      <UploadedImage
                         src={variant.imagePath}
                         alt={`${productName} ${variant.color}`}
                         className="h-full w-full object-cover"
@@ -222,7 +223,7 @@ export function VariantsManager({
                           className="block h-full w-full"
                           title="Hape foton"
                         >
-                          <img
+                          <UploadedImage
                             src={variant.imagePath}
                             alt={`${productName} ${variant.color}`}
                             className="h-full w-full object-cover transition hover:scale-105"

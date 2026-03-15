@@ -173,16 +173,22 @@ export default async function NewOrderPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
 
-  const variants = await prisma.variant.findMany({
+  const products = await prisma.product.findMany({
     where: {
-      stock: {
-        gt: 0,
+      variants: {
+        some: {
+          stock: {
+            gt: 0,
+          },
+        },
       },
     },
-    include: {
-      product: true,
+    select: {
+      id: true,
+      name: true,
+      brand: true,
     },
-    orderBy: [{ product: { name: "asc" } }, { size: "asc" }, { color: "asc" }],
+    orderBy: [{ name: "asc" }, { brand: "asc" }],
   });
 
   return (
@@ -222,15 +228,9 @@ export default async function NewOrderPage({
 
         <OrderForm
           action={createOrder}
-          variants={variants.map((variant) => ({
-            id: variant.id,
-            productId: variant.productId,
-            productLabel: `${variant.product.name} | ${variant.product.brand}`,
-            size: variant.size,
-            color: variant.color,
-            imagePath: variant.imagePath,
-            stock: variant.stock,
-            price: Number(variant.price),
+          products={products.map((product) => ({
+            id: product.id,
+            label: `${product.name} | ${product.brand}`,
           }))}
         />
       </section>

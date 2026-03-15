@@ -2,8 +2,10 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { ImageFileInput } from "@/app/components/image-file-input";
-import { saveProductImage } from "@/lib/product-images";
+import {
+  ProductImageUploadError,
+  saveProductImage,
+} from "@/lib/product-images";
 import { prisma } from "@/lib/prisma";
 import {
   buildBarcodeFromVariantId,
@@ -11,11 +13,15 @@ import {
   ensureUniqueSku,
   normalizeVariantCode,
 } from "@/lib/variant-codes";
+import { VariantImageUploadForm } from "./variant-image-upload-form";
 
 type EditVariantPageProps = {
   params: Promise<{
     id: string;
     variantId: string;
+  }>;
+  searchParams?: Promise<{
+    error?: string;
   }>;
 };
 
@@ -32,10 +38,24 @@ async function uploadVariantImage(formData: FormData) {
     return;
   }
 
-  const imagePath = await saveProductImage(productId, file);
+  let imagePath: string | null;
+
+  try {
+    imagePath = await saveProductImage(productId, file);
+  } catch (error) {
+    const message =
+      error instanceof ProductImageUploadError
+        ? error.message
+        : "Ngarkimi i fotos deshtoi.";
+    redirect(
+      `/products/${productId}/variants/${variantId}/edit?error=${encodeURIComponent(message)}`,
+    );
+  }
 
   if (!imagePath) {
-    return;
+    redirect(
+      `/products/${productId}/variants/${variantId}/edit?error=${encodeURIComponent("Zgjedh nje foto para upload-it.")}`,
+    );
   }
 
   const variant = await prisma.variant.findUnique({
@@ -165,6 +185,7 @@ async function updateVariant(formData: FormData) {
 
 export default async function EditVariantPage({
   params,
+  searchParams,
 }: EditVariantPageProps) {
   await requireRole(["SUPER_ADMIN"]);
 
@@ -186,6 +207,9 @@ export default async function EditVariantPage({
   if (!variant || variant.productId !== productId) {
     notFound();
   }
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = resolvedSearchParams?.error?.trim() || null;
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -219,25 +243,15 @@ export default async function EditVariantPage({
           </div>
         </div>
 
-        <form
+        <VariantImageUploadForm
           action={uploadVariantImage}
-          className="mt-8 space-y-3"
-        >
-          <input type="hidden" name="productId" value={productId} />
-          <input type="hidden" name="variantId" value={variant.id} />
-          <ImageFileInput
-            id="variant-image"
-            name="image"
-            label="Foto e variantit"
-            helperText="Zgjedh nje foto dhe kliko Upload. Fotoja do t'u vendoset te gjithe numrave me te njejten ngjyre."
-          />
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            Upload Foto
-          </button>
-        </form>
+          productId={productId}
+          variantId={variant.id}
+          imagePath={variant.imagePath}
+          productName={variant.product.name}
+          color={variant.color}
+          errorMessage={errorMessage}
+        />
 
         <form action={updateVariant} className="mt-5 space-y-5">
           <input type="hidden" name="productId" value={productId} />

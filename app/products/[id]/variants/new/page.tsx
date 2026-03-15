@@ -2,7 +2,10 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { saveProductImage } from "@/lib/product-images";
+import {
+  ProductImageUploadError,
+  saveProductImage,
+} from "@/lib/product-images";
 import { prisma } from "@/lib/prisma";
 import {
   buildBarcodeFromVariantId,
@@ -15,6 +18,9 @@ import { VariantRowsForm } from "./variant-rows-form";
 type NewProductVariantPageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams?: Promise<{
+    error?: string;
   }>;
 };
 
@@ -116,8 +122,21 @@ async function createVariants(formData: FormData) {
     return;
   }
 
-  const uploadedImagePath =
-    file instanceof File ? await saveProductImage(productId, file) : null;
+  let uploadedImagePath: string | null = null;
+
+  if (file instanceof File && file.size > 0) {
+    try {
+      uploadedImagePath = await saveProductImage(productId, file);
+    } catch (error) {
+      const message =
+        error instanceof ProductImageUploadError
+          ? error.message
+          : "Ngarkimi i fotos deshtoi.";
+      redirect(
+        `/products/${productId}/variants/new?error=${encodeURIComponent(message)}`,
+      );
+    }
+  }
 
   const existingKeys = new Set(
     existingProductVariants.map(
@@ -196,6 +215,7 @@ async function createVariants(formData: FormData) {
 
 export default async function NewProductVariantPage({
   params,
+  searchParams,
 }: NewProductVariantPageProps) {
   await requireRole(["SUPER_ADMIN"]);
 
@@ -213,6 +233,9 @@ export default async function NewProductVariantPage({
   if (!product) {
     notFound();
   }
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = resolvedSearchParams?.error?.trim() || null;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fef3c7_0%,transparent_18%),radial-gradient(circle_at_top_right,#dbeafe_0%,transparent_22%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -246,6 +269,11 @@ export default async function NewProductVariantPage({
           </div>
         </div>
         <VariantRowsForm productId={product.id} action={createVariants} />
+        {errorMessage ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {errorMessage}
+          </div>
+        ) : null}
       </div>
     </main>
   );

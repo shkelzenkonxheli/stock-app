@@ -1,8 +1,29 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+const PAGE_SIZE = 20;
+
+type ProductsPageProps = {
+  searchParams?: Promise<{
+    page?: string;
+    q?: string;
+  }>;
+};
+
+function buildProductsPageHref(page: number, q: string) {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+
+  if (q) {
+    params.set("q", q);
+  }
+
+  return `/products?${params.toString()}`;
+}
 
 async function deleteProduct(formData: FormData) {
   "use server";
@@ -37,18 +58,61 @@ async function deleteProduct(formData: FormData) {
   revalidatePath("/products");
 }
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: ProductsPageProps) {
   const currentUser = await requireUser();
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const searchQuery = resolvedSearchParams?.q?.trim() || "";
+  const currentPage = Math.max(1, Number(resolvedSearchParams?.page) || 1);
+  const skip = (currentPage - 1) * PAGE_SIZE;
+  const where: Prisma.ProductWhereInput = searchQuery
+    ? {
+        OR: [
+          {
+            name: {
+              contains: searchQuery,
+              mode: "insensitive",
+            },
+          },
+          {
+            brand: {
+              contains: searchQuery,
+              mode: "insensitive",
+            },
+          },
+        ],
+      }
+    : {};
 
-  const products = await prisma.product.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      variants: true,
-    },
-  });
+  const [products, totalProducts] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip,
+      take: PAGE_SIZE,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        variants: {
+          select: {
+            size: true,
+            color: true,
+            stock: true,
+            price: true,
+          },
+        },
+      },
+    }),
+    prisma.product.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
+  const previousPage = currentPage > 1 ? currentPage - 1 : null;
+  const nextPage = currentPage < totalPages ? currentPage + 1 : null;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#e0f2fe_0%,transparent_18%),radial-gradient(circle_at_top_right,#ffedd5_0%,transparent_22%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -73,7 +137,7 @@ export default async function ProductsPage() {
               </Link>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
                 <span className="font-semibold text-slate-950">
-                  {products.length}
+                  {totalProducts}
                 </span>{" "}
                 modele ne sistem
               </div>
@@ -90,14 +154,40 @@ export default async function ProductsPage() {
         </section>
 
         <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)]">
+          <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
+            <form className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+              <input
+                type="text"
+                name="q"
+                defaultValue={searchQuery}
+                placeholder="Kerko sipas modelit ose brendit"
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Kerko
+              </button>
+              <Link
+                href="/products"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                Reset
+              </Link>
+            </form>
+          </div>
           {products.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-base font-medium text-slate-900">
-                Nuk ka ende produkte te regjistruara
+                {searchQuery
+                  ? "Nuk u gjet asnje produkt me kete kerkim"
+                  : "Nuk ka ende produkte te regjistruara"}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                Shto modelin e pare dhe vazhdo me variantet per te filluar
-                inventarin.
+                {searchQuery
+                  ? "Provo nje kerkese tjeter ose bej reset per t'i pare te gjitha."
+                  : "Shto modelin e pare dhe vazhdo me variantet per te filluar inventarin."}
               </p>
             </div>
           ) : (
@@ -323,6 +413,41 @@ export default async function ProductsPage() {
             </>
           )}
         </section>
+
+        {totalProducts > PAGE_SIZE ? (
+          <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200/80 bg-white px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              Faqja <span className="font-semibold text-slate-950">{currentPage}</span> nga{" "}
+              <span className="font-semibold text-slate-950">{totalPages}</span>
+            </p>
+            <div className="flex gap-2">
+              {previousPage ? (
+                <Link
+                  href={buildProductsPageHref(previousPage, searchQuery)}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  Mbrapa
+                </Link>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">
+                  Mbrapa
+                </span>
+              )}
+              {nextPage ? (
+                <Link
+                  href={buildProductsPageHref(nextPage, searchQuery)}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  Para
+                </Link>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">
+                  Para
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );

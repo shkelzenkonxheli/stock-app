@@ -30,9 +30,19 @@ const createEmptyRow = (): VariantRow => ({
   price: "",
 });
 
+const incrementSize = (size: string) => {
+  const trimmedSize = size.trim();
+
+  if (!/^\d+$/.test(trimmedSize)) {
+    return size;
+  }
+
+  return String(Number(trimmedSize) + 1);
+};
+
 const cloneRow = (row: VariantRow): VariantRow => ({
   id: crypto.randomUUID(),
-  size: row.size,
+  size: incrementSize(row.size),
   color: row.color,
   sku: row.sku,
   barcode: row.barcode,
@@ -105,7 +115,7 @@ export function VariantRowsForm({ productId, action }: VariantRowsFormProps) {
 
       <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
         <div className="overflow-x-auto">
-          <table className="min-w-245 divide-y divide-slate-200 text-sm">
+          <table className="min-w-[760px] divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50/90 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3.5 font-semibold uppercase tracking-[0.14em]">
@@ -198,7 +208,7 @@ export function VariantRowsForm({ productId, action }: VariantRowsFormProps) {
         <div className="flex items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
           <p>
             Kur shtyp `+ Shto rresht`, rreshti i fundit kopjohet automatikisht.
-            Zakonisht mjafton te nderrosh vetem numrin.
+            Nese numri eshte si `41`, rreshti i ri del automatikisht `42`.
           </p>
           <button
             type="button"

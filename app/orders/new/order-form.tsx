@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { UploadedImage } from "@/app/components/uploaded-image";
 
 type OrderVariant = {
   id: number;
@@ -14,9 +15,14 @@ type OrderVariant = {
   price: number;
 };
 
+type ProductOption = {
+  id: number;
+  label: string;
+};
+
 type OrderFormProps = {
   action: (formData: FormData) => void | Promise<void>;
-  variants: OrderVariant[];
+  products: ProductOption[];
 };
 
 type OrderSource = "INSTAGRAM" | "STORE" | "WHOLESALE";
@@ -43,21 +49,69 @@ function createEmptyRow(): OrderItemRow {
   };
 }
 
-export function OrderForm({ action, variants }: OrderFormProps) {
-  const products = useMemo(() => {
-    const seen = new Map<number, string>();
-
-    for (const variant of variants) {
-      if (!seen.has(variant.productId)) {
-        seen.set(variant.productId, variant.productLabel);
-      }
-    }
-
-    return Array.from(seen, ([id, label]) => ({ id, label }));
-  }, [variants]);
-
+export function OrderForm({ action, products }: OrderFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
   const [rows, setRows] = useState<OrderItemRow[]>([createEmptyRow()]);
+  const [variantsByProduct, setVariantsByProduct] = useState<
+    Record<number, OrderVariant[]>
+  >({});
+  const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>(
+    {},
+  );
+
+  useEffect(() => {
+    const productIdsToLoad = [
+      ...new Set(
+        rows
+          .map((row) => Number(row.productId))
+          .filter(
+            (productId) =>
+              productId > 0 && !variantsByProduct[productId],
+          ),
+      ),
+    ];
+
+    if (productIdsToLoad.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadVariants = async () => {
+      for (const productId of productIdsToLoad) {
+        setLoadingProducts((current) => ({ ...current, [productId]: true }));
+
+        try {
+          const response = await fetch(`/api/products/${productId}/variants`, {
+            cache: "no-store",
+          });
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const data = (await response.json()) as OrderVariant[];
+
+          if (!isCancelled) {
+            setVariantsByProduct((current) => ({
+              ...current,
+              [productId]: data,
+            }));
+          }
+        } finally {
+          if (!isCancelled) {
+            setLoadingProducts((current) => ({ ...current, [productId]: false }));
+          }
+        }
+      }
+    };
+
+    void loadVariants();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [rows, variantsByProduct]);
 
   const reservedByVariant = useMemo(() => {
     const totals = new Map<number, number>();
@@ -117,9 +171,13 @@ export function OrderForm({ action, variants }: OrderFormProps) {
     });
   };
 
+  const allLoadedVariants = Object.values(variantsByProduct).flat();
+
   const selectedItems = rows
     .map((row) => {
-      const variant = variants.find((item) => item.id === Number(row.variantId));
+      const variant = allLoadedVariants.find(
+        (item) => item.id === Number(row.variantId),
+      );
 
       if (!variant) {
         return null;
@@ -195,10 +253,11 @@ export function OrderForm({ action, variants }: OrderFormProps) {
           {rows.map((row, index) => {
             const rowVariantId = Number(row.variantId);
             const rowQuantity = Number(row.quantity) || 0;
-            const filteredVariants = variants
-              .filter((variant) =>
-                row.productId ? variant.productId === Number(row.productId) : false,
-              )
+            const selectedProductId = Number(row.productId);
+            const productVariants = selectedProductId
+              ? variantsByProduct[selectedProductId] ?? []
+              : [];
+            const filteredVariants = productVariants
               .map((variant) => {
                 const reservedElsewhere =
                   (reservedByVariant.get(variant.id) ?? 0) -
@@ -216,6 +275,9 @@ export function OrderForm({ action, variants }: OrderFormProps) {
             const selectedVariant = filteredVariants.find(
               (variant) => variant.id === Number(row.variantId),
             );
+            const isLoadingVariants = selectedProductId
+              ? Boolean(loadingProducts[selectedProductId])
+              : false;
 
             return (
               <div
@@ -264,13 +326,17 @@ export function OrderForm({ action, variants }: OrderFormProps) {
                       onChange={(event) =>
                         updateRow(row.id, "variantId", event.target.value)
                       }
-                      disabled={!row.productId}
+                      disabled={!row.productId || isLoadingVariants}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="">
-                        {row.productId
-                          ? "Zgjedh variantin"
-                          : "Zgjedh fillimisht produktin"}
+                        {!row.productId
+                          ? "Zgjedh fillimisht produktin"
+                          : isLoadingVariants
+                            ? "Duke ngarkuar variantet..."
+                            : filteredVariants.length === 0
+                              ? "Nuk ka variante ne stok"
+                              : "Zgjedh variantin"}
                       </option>
                       {filteredVariants.map((variant) => (
                         <option key={variant.id} value={variant.id}>
@@ -302,7 +368,7 @@ export function OrderForm({ action, variants }: OrderFormProps) {
                   <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:flex-row sm:items-center">
                     <div className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-white">
                       {selectedVariant.imagePath ? (
-                        <img
+                        <UploadedImage
                           src={selectedVariant.imagePath}
                           alt={`${selectedVariant.productLabel} ${selectedVariant.color}`}
                           className="h-full w-full object-cover"
@@ -340,7 +406,7 @@ export function OrderForm({ action, variants }: OrderFormProps) {
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                     {item.imagePath ? (
-                      <img
+                      <UploadedImage
                         src={item.imagePath}
                         alt={`${item.productLabel} ${item.color}`}
                         className="h-full w-full object-cover"
