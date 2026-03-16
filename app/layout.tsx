@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { logout } from "@/app/actions/auth";
@@ -52,9 +53,19 @@ export default async function RootLayout({
                 <div className="flex min-w-0 items-center gap-3">
                   <Link
                     href="/"
-                    className="text-lg font-semibold tracking-tight text-slate-950"
+                    className="flex min-w-0 items-center gap-3 text-lg font-semibold tracking-tight text-slate-950"
                   >
-                    Stock App
+                    <span className="relative h-10 w-10 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <Image
+                        src="/logo.jpg"
+                        alt="Logo"
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                        priority
+                      />
+                    </span>
+                    <span className="truncate">Stock App</span>
                   </Link>
                   <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 sm:inline-flex">
                     {roleLabel(currentUser.role)}

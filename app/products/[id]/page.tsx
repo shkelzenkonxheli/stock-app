@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
 
 type ProductDetailsPageProps = {
@@ -290,48 +291,13 @@ export default async function ProductDetailsPage({
             </div>
           ) : (
             <div className="space-y-4">
-              <form className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
-                <select
-                  name="size"
-                  defaultValue={selectedSize}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
-                >
-                  <option value="">Te gjithe numrat</option>
-                  {sizes.map((size) => (
-                    <option key={size} value={size}>
-                      Nr {size}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  name="color"
-                  defaultValue={selectedColor}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
-                >
-                  <option value="">Te gjitha ngjyrat</option>
-                  {colors.map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
-                  <button
-                    type="submit"
-                    className="inline-flex w-full items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  >
-                    Filtro
-                  </button>
-                  <Link
-                    href={`/products/${product.id}`}
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                  >
-                    Reset
-                  </Link>
-                </div>
-              </form>
+              <ProductVariantsFilters
+                selectedSize={selectedSize}
+                selectedColor={selectedColor}
+                selectedStock={selectedStock}
+                sizes={sizes}
+                colors={colors}
+              />
 
               <div className="flex items-center justify-between px-1">
                 <p className="text-sm text-slate-600">

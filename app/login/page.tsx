@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, getCurrentUser } from "@/lib/auth";
@@ -75,10 +76,22 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-4xl items-center justify-center">
         <section className="w-full max-w-md rounded-[32px] border border-white/35 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Secure Access
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative h-16 w-16 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+              <Image
+                src="/logo.jpg"
+                alt="Logo"
+                fill
+                className="object-cover"
+                sizes="64px"
+                priority
+              />
+            </div>
+            <p className="mt-3 text-sm font-medium tracking-[0.18em] text-slate-500 uppercase">
+              Stock App
+            </p>
+          </div>
+          <h1 className="mt-5 text-center text-3xl font-semibold tracking-tight text-slate-950">
             Login
           </h1>
 

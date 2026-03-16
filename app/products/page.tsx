@@ -4,6 +4,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ProductsFilters } from "./products-filters";
 
 const PAGE_SIZE = 20;
 
@@ -155,27 +156,7 @@ export default async function ProductsPage({
 
         <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)]">
           <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
-            <form className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-              <input
-                type="text"
-                name="q"
-                defaultValue={searchQuery}
-                placeholder="Kerko sipas modelit ose brendit"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Kerko
-              </button>
-              <Link
-                href="/products"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Reset
-              </Link>
-            </form>
+            <ProductsFilters searchQuery={searchQuery} />
           </div>
           {products.length === 0 ? (
             <div className="px-6 py-16 text-center">
