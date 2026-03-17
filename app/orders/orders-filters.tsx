@@ -7,12 +7,14 @@ type OrdersFiltersProps = {
   searchQuery: string;
   selectedStatus: string;
   selectedSource: string;
+  selectedDate: string;
 };
 
 export function OrdersFilters({
   searchQuery,
   selectedStatus,
   selectedSource,
+  selectedDate,
 }: OrdersFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -21,9 +23,15 @@ export function OrdersFilters({
   const [query, setQuery] = useState(searchQuery);
   const [status, setStatus] = useState(selectedStatus);
   const [source, setSource] = useState(selectedSource);
+  const [date, setDate] = useState(selectedDate);
 
   const updateFilters = useCallback(
-    (nextQuery: string, nextStatus: string, nextSource: string) => {
+    (
+      nextQuery: string,
+      nextStatus: string,
+      nextSource: string,
+      nextDate: string,
+    ) => {
       const params = new URLSearchParams(searchParams.toString());
 
       params.delete("page");
@@ -44,6 +52,12 @@ export function OrdersFilters({
         params.set("source", nextSource);
       } else {
         params.delete("source");
+      }
+
+      if (nextDate) {
+        params.set("date", nextDate);
+      } else {
+        params.delete("date");
       }
 
       const nextUrl = params.toString()
@@ -70,16 +84,21 @@ export function OrdersFilters({
   }, [selectedSource]);
 
   useEffect(() => {
+    setDate(selectedDate);
+  }, [selectedDate]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => {
       if (
         query === searchQuery &&
         status === selectedStatus &&
-        source === selectedSource
+        source === selectedSource &&
+        date === selectedDate
       ) {
         return;
       }
 
-      updateFilters(query, status, source);
+      updateFilters(query, status, source, date);
     }, 250);
 
     return () => clearTimeout(timeout);
@@ -87,14 +106,16 @@ export function OrdersFilters({
     query,
     status,
     source,
+    date,
     searchQuery,
     selectedStatus,
     selectedSource,
+    selectedDate,
     updateFilters,
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_180px]">
       <div className="space-y-1">
         <input
           type="text"
@@ -109,6 +130,13 @@ export function OrdersFilters({
             : "Kerko automatikisht sapo te shkruash"}
         </p>
       </div>
+
+      <input
+        type="date"
+        value={date}
+        onChange={(event) => setDate(event.target.value)}
+        className="h-12 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+      />
 
       <select
         value={status}

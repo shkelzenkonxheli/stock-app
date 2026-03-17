@@ -259,12 +259,10 @@ export default async function EditVariantPage({
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Printo etiketa
               </p>
-              <h2 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
-                Gati per barcode labels
-              </h2>
+
               <p className="mt-1 text-sm text-slate-600">
-                Hap preview dhe printo etiketa per kete variant. Sasia fillestare
-                vendoset sa eshte stoku aktual.
+                Hap preview dhe printo etiketa per kete variant. Sasia
+                fillestare vendoset sa eshte stoku aktual.
               </p>
             </div>
 
@@ -294,7 +292,7 @@ export default async function EditVariantPage({
                 type="submit"
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-100"
               >
-                Hap preview
+                Hap
               </button>
             </form>
           </div>

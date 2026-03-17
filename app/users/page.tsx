@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { AddUserModal } from "./add-user-modal";
+import { EditUserModal } from "./edit-user-modal";
+import { ResetPasswordModal } from "./reset-password-modal";
 
 type UsersPageProps = {
   searchParams?: Promise<{
     error?: string;
     success?: string;
     add?: string;
+    edit?: string;
+    reset?: string;
   }>;
 };
 
@@ -53,6 +58,140 @@ async function createUser(formData: FormData) {
   redirect("/users?success=created");
 }
 
+async function updateUser(formData: FormData) {
+  "use server";
+
+  const currentUser = await requireRole(["SUPER_ADMIN"]);
+
+  const userId = Number(formData.get("userId"));
+  const name = formData.get("name")?.toString().trim();
+  const email = formData.get("email")?.toString().trim().toLowerCase();
+  const role = formData.get("role")?.toString() as
+    | "SUPER_ADMIN"
+    | "SELLER"
+    | "WAREHOUSE"
+    | undefined;
+
+  if (!userId || !name || !email || !role) {
+    redirect(`/users?error=validation&edit=${userId}`);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    redirect("/users?error=notfound");
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser && existingUser.id !== userId) {
+    redirect(`/users?error=email&edit=${userId}`);
+  }
+
+  if (user.role === "SUPER_ADMIN" && role !== "SUPER_ADMIN") {
+    const superAdminCount = await prisma.user.count({
+      where: { role: "SUPER_ADMIN" },
+    });
+
+    if (superAdminCount <= 1) {
+      redirect(`/users?error=last-admin&edit=${userId}`);
+    }
+  }
+
+  if (currentUser.id === userId && currentUser.role === "SUPER_ADMIN" && role !== "SUPER_ADMIN") {
+    redirect(`/users?error=self-role&edit=${userId}`);
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name,
+      email,
+      role,
+    },
+  });
+
+  redirect("/users?success=updated");
+}
+
+async function resetUserPassword(formData: FormData) {
+  "use server";
+
+  await requireRole(["SUPER_ADMIN"]);
+
+  const userId = Number(formData.get("userId"));
+  const password = formData.get("password")?.toString();
+
+  if (!userId || !password || password.length < 6) {
+    redirect(`/users?error=password&reset=${userId}`);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    redirect("/users?error=notfound");
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+
+  redirect("/users?success=password-reset");
+}
+
+async function deleteUser(formData: FormData) {
+  "use server";
+
+  const currentUser = await requireRole(["SUPER_ADMIN"]);
+  const userId = Number(formData.get("userId"));
+
+  if (!userId) {
+    return;
+  }
+
+  if (currentUser.id === userId) {
+    redirect("/users?error=self-delete");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    redirect("/users?error=notfound");
+  }
+
+  if (user.role === "SUPER_ADMIN") {
+    const superAdminCount = await prisma.user.count({
+      where: { role: "SUPER_ADMIN" },
+    });
+
+    if (superAdminCount <= 1) {
+      redirect("/users?error=last-admin");
+    }
+  }
+
+  await prisma.user.delete({
+    where: { id: userId },
+  });
+
+  redirect("/users?success=deleted");
+}
+
 function getMessage(error?: string, success?: string) {
   if (error === "validation") {
     return {
@@ -68,6 +207,41 @@ function getMessage(error?: string, success?: string) {
     };
   }
 
+  if (error === "password") {
+    return {
+      type: "error" as const,
+      text: "Password duhet te kete te pakten 6 karaktere.",
+    };
+  }
+
+  if (error === "last-admin") {
+    return {
+      type: "error" as const,
+      text: "Nuk mund ta heqesh ose ndryshosh super admin-in e fundit.",
+    };
+  }
+
+  if (error === "self-delete") {
+    return {
+      type: "error" as const,
+      text: "Nuk mund ta fshish veten nga sistemi.",
+    };
+  }
+
+  if (error === "self-role") {
+    return {
+      type: "error" as const,
+      text: "Nuk mund ta heqesh rolin tend si SUPER_ADMIN nga kjo llogari.",
+    };
+  }
+
+  if (error === "notfound") {
+    return {
+      type: "error" as const,
+      text: "Useri nuk u gjet.",
+    };
+  }
+
   if (success === "created") {
     return {
       type: "success" as const,
@@ -75,11 +249,32 @@ function getMessage(error?: string, success?: string) {
     };
   }
 
+  if (success === "updated") {
+    return {
+      type: "success" as const,
+      text: "Useri u perditesua me sukses.",
+    };
+  }
+
+  if (success === "password-reset") {
+    return {
+      type: "success" as const,
+      text: "Password-i u ndryshua me sukses.",
+    };
+  }
+
+  if (success === "deleted") {
+    return {
+      type: "success" as const,
+      text: "Useri u fshi me sukses.",
+    };
+  }
+
   return null;
 }
 
 export default async function UsersPage({ searchParams }: UsersPageProps) {
-  await requireRole(["SUPER_ADMIN"]);
+  const currentUser = await requireRole(["SUPER_ADMIN"]);
 
   const users = await prisma.user.findMany({
     orderBy: {
@@ -92,10 +287,20 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     resolvedSearchParams?.error,
     resolvedSearchParams?.success,
   );
+  const editUserId = Number(resolvedSearchParams?.edit);
+  const resetUserId = Number(resolvedSearchParams?.reset);
+  const editUser =
+    Number.isInteger(editUserId) && editUserId > 0
+      ? users.find((user) => user.id === editUserId) ?? null
+      : null;
+  const resetUser =
+    Number.isInteger(resetUserId) && resetUserId > 0
+      ? users.find((user) => user.id === resetUserId) ?? null
+      : null;
   const isAddOpen =
     resolvedSearchParams?.add === "1" ||
     resolvedSearchParams?.success === "created" ||
-    Boolean(resolvedSearchParams?.error);
+    (Boolean(resolvedSearchParams?.error) && !resolvedSearchParams?.edit && !resolvedSearchParams?.reset);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -125,6 +330,18 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
             </div>
           </div>
 
+          {message && !isAddOpen && !editUser && !resetUser ? (
+            <div
+              className={`mx-4 mt-4 rounded-2xl px-4 py-3 text-sm sm:mx-5 lg:mx-6 ${
+                message.type === "error"
+                  ? "border border-rose-200 bg-rose-50 text-rose-700"
+                  : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {message.text}
+            </div>
+          ) : null}
+
           <div className="grid gap-4 p-4 sm:p-5 lg:hidden">
             {users.map((user) => (
               <article
@@ -144,6 +361,28 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     {user.role}
                   </span>
                 </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <Link
+                    href={`/users?edit=${user.id}`}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                  >
+                    Edito
+                  </Link>
+                  <Link
+                    href={`/users?reset=${user.id}`}
+                    className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 transition hover:bg-amber-100"
+                  >
+                    Password
+                  </Link>
+                  <ConfirmActionForm
+                    action={deleteUser}
+                    hiddenFields={[{ name: "userId", value: user.id }]}
+                    confirmMessage="A je i sigurt qe don ta fshish kete user?"
+                    buttonLabel="Fshi"
+                    disabled={user.id === currentUser.id}
+                    className="inline-flex w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
               </article>
             ))}
           </div>
@@ -155,6 +394,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   <th className="px-5 py-4">Emri</th>
                   <th className="px-5 py-4">Email</th>
                   <th className="px-5 py-4">Roli</th>
+                  <th className="px-5 py-4 text-right">Veprime</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -169,12 +409,43 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                         {user.role}
                       </span>
                     </td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/users?edit=${user.id}`}
+                          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                        >
+                          Edito
+                        </Link>
+                        <Link
+                          href={`/users?reset=${user.id}`}
+                          className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 transition hover:bg-amber-100"
+                        >
+                          Password
+                        </Link>
+                        <ConfirmActionForm
+                          action={deleteUser}
+                          hiddenFields={[{ name: "userId", value: user.id }]}
+                          confirmMessage="A je i sigurt qe don ta fshish kete user?"
+                          buttonLabel="Fshi"
+                          disabled={user.id === currentUser.id}
+                          className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </section>
+
+        <EditUserModal action={updateUser} open={Boolean(editUser)} user={editUser} />
+        <ResetPasswordModal
+          action={resetUserPassword}
+          open={Boolean(resetUser)}
+          user={resetUser}
+        />
       </div>
     </main>
   );

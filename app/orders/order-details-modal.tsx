@@ -46,7 +46,7 @@ export function OrderDetailsModal({
         onClick={() => dialogRef.current?.showModal()}
         className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
       >
-        Shiko porosine
+        Shiko
       </button>
 
       <dialog
@@ -95,26 +95,33 @@ export function OrderDetailsModal({
               <p className="mt-2 font-semibold text-slate-950">
                 {createdAtDateLabel}
               </p>
-              <p className="mt-1 text-sm text-slate-600">{createdAtTimeLabel}</p>
+              <p className="mt-1 text-sm text-slate-600">
+                {createdAtTimeLabel}
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Referenca
               </p>
-              <p className="mt-2 font-semibold text-slate-950">{reference || "-"}</p>
+              <p className="mt-2 font-semibold text-slate-950">
+                {reference || "-"}
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Artikuj
               </p>
               <p className="mt-2 font-semibold text-slate-950">
-                {items.length} / {items.reduce((sum, item) => sum + item.quantity, 0)} cope
+                {items.length} /{" "}
+                {items.reduce((sum, item) => sum + item.quantity, 0)} cope
               </p>
             </div>
           </div>
 
           <div className="space-y-3 text-center">
-            <p className="text-sm font-semibold text-slate-950">Detajet e porosise</p>
+            <p className="text-sm font-semibold text-slate-950">
+              Detajet e porosise
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {items.map((item) => (
                 <div
@@ -132,8 +139,12 @@ export function OrderDetailsModal({
                       ) : null}
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-950">{item.name}</p>
-                      <p className="mt-1 text-sm text-slate-600">{item.brand}</p>
+                      <p className="font-semibold text-slate-950">
+                        {item.name}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {item.brand}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm">

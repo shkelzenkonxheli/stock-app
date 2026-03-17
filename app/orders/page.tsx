@@ -14,6 +14,7 @@ type OrdersPageProps = {
     q?: string;
     status?: string;
     source?: string;
+    date?: string;
   }>;
 };
 
@@ -25,6 +26,7 @@ function buildOrdersPageHref(
   q: string,
   status: string,
   source: string,
+  date: string,
 ) {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -37,6 +39,9 @@ function buildOrdersPageHref(
   }
   if (source) {
     params.set("source", source);
+  }
+  if (date) {
+    params.set("date", date);
   }
 
   return `/orders?${params.toString()}`;
@@ -305,6 +310,19 @@ export default async function OrdersPage({
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
   const rawStatus = resolvedSearchParams?.status?.trim() || "";
   const rawSource = resolvedSearchParams?.source?.trim() || "";
+  const today = new Date();
+  const defaultDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  const rawDate = resolvedSearchParams?.date?.trim() || defaultDate;
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+    ? rawDate
+    : defaultDate;
+  const dateFrom = new Date(`${selectedDate}T00:00:00`);
+  const dateTo = new Date(dateFrom);
+  dateTo.setDate(dateTo.getDate() + 1);
   const selectedStatus: OrderStatusValue | "" = [
     "NEW",
     "READY",
@@ -357,6 +375,10 @@ export default async function OrdersPage({
           source: selectedSource,
         }
       : {}),
+    createdAt: {
+      gte: dateFrom,
+      lt: dateTo,
+    },
   };
 
   const [orders, totalOrders] = await Promise.all([
@@ -483,12 +505,20 @@ export default async function OrdersPage({
 
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
               {canCreateOrders ? (
-                <Link
-                  href="/orders/new"
-                  className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 sm:w-auto"
-                >
-                  + Shto Porosi
-                </Link>
+                <>
+                  <Link
+                    href="/orders/quick"
+                    className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 sm:w-auto"
+                  >
+                    Porosi te shpejta
+                  </Link>
+                  <Link
+                    href="/orders/new"
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 sm:w-auto"
+                  >
+                    + Shto Porosi
+                  </Link>
+                </>
               ) : null}
             </div>
           </div>
@@ -500,17 +530,18 @@ export default async function OrdersPage({
               searchQuery={searchQuery}
               selectedStatus={selectedStatus}
               selectedSource={selectedSource}
+              selectedDate={selectedDate}
             />
           </div>
           {orders.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-base font-medium text-slate-900">
-                {searchQuery || selectedStatus || selectedSource
+                {searchQuery || selectedStatus || selectedSource || selectedDate
                   ? "Nuk u gjet asnje porosi me keto filtra"
                   : "Nuk ka ende porosi te regjistruara"}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                {searchQuery || selectedStatus || selectedSource
+                {searchQuery || selectedStatus || selectedSource || selectedDate
                   ? "Ndrysho filtrat ose bej reset per t'i pare te gjitha."
                   : "Shto porosine e pare per te filluar ndjekjen e shitjeve."}
               </p>
@@ -546,6 +577,7 @@ export default async function OrdersPage({
                     searchQuery,
                     selectedStatus,
                     selectedSource,
+                    selectedDate,
                   )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
@@ -563,6 +595,7 @@ export default async function OrdersPage({
                     searchQuery,
                     selectedStatus,
                     selectedSource,
+                    selectedDate,
                   )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
