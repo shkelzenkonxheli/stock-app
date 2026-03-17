@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { hasRole, requireUser } from "@/lib/auth";
+import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
+import { prisma } from "@/lib/prisma";
 
 type Tile = {
   title: string;
@@ -58,11 +60,22 @@ export default async function Home() {
     "WAREHOUSE",
   ]);
   const canManageUsers = hasRole(currentUser, ["SUPER_ADMIN"]);
+  const lowStockCount = await prisma.variant.count({
+    where: {
+      stock: {
+        gt: 0,
+        lte: LOW_STOCK_THRESHOLD,
+      },
+    },
+  });
 
   const tiles: Tile[] = [
     {
       title: "Produktet",
-      subtitle: "Inventari",
+      subtitle:
+        lowStockCount > 0
+          ? `${lowStockCount} variante me stok te ulet`
+          : "Inventari",
       href: "/products",
       color: "bg-sky-500",
       visible: true,

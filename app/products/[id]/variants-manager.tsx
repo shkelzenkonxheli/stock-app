@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { UploadedImage } from "@/app/components/uploaded-image";
+import { getStockTone } from "@/lib/inventory";
 
 type VariantItem = {
   id: number;
@@ -20,6 +21,9 @@ type VariantsManagerProps = {
   productId: number;
   productName: string;
   canManageInventory: boolean;
+  selectedSize: string;
+  selectedColor: string;
+  selectedStock: string;
   variants: VariantItem[];
   deleteVariantAction: (formData: FormData) => void | Promise<void>;
   bulkDeleteAction: (formData: FormData) => void | Promise<void>;
@@ -29,6 +33,9 @@ export function VariantsManager({
   productId,
   productName,
   canManageInventory,
+  selectedSize,
+  selectedColor,
+  selectedStock,
   variants,
   deleteVariantAction,
   bulkDeleteAction,
@@ -73,6 +80,9 @@ export function VariantsManager({
             hiddenFields={[
               { name: "productId", value: productId },
               { name: "variantIds", value: serializedSelectedIds },
+              { name: "size", value: selectedSize },
+              { name: "color", value: selectedColor },
+              { name: "stock", value: selectedStock },
             ]}
             confirmMessage="A je i sigurt qe don t'i fshish variantet e zgjedhura?"
             buttonLabel="Fshi te zgjedhurat"
@@ -83,6 +93,10 @@ export function VariantsManager({
 
       <div className="grid gap-4 lg:hidden">
         {variants.map((variant) => (
+          (() => {
+            const stockTone = getStockTone(variant.stock);
+
+            return (
           <article
             key={variant.id}
             className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
@@ -123,9 +137,16 @@ export function VariantsManager({
                   </p>
                 </div>
               </div>
-              <span className="inline-flex min-w-16 items-center justify-center rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
-                {variant.stock}
-              </span>
+              <div className="text-right">
+                <span
+                  className={`inline-flex min-w-16 items-center justify-center rounded-xl px-3 py-2 font-semibold ${stockTone.badgeClassName}`}
+                >
+                  {variant.stock}
+                </span>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  {stockTone.label}
+                </p>
+              </div>
             </div>
 
             <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">
@@ -167,6 +188,9 @@ export function VariantsManager({
                   hiddenFields={[
                     { name: "variantId", value: variant.id },
                     { name: "productId", value: productId },
+                    { name: "size", value: selectedSize },
+                    { name: "color", value: selectedColor },
+                    { name: "stock", value: selectedStock },
                   ]}
                   confirmMessage="A je i sigurt qe don ta fshish kete variant?"
                   buttonLabel="Fshi"
@@ -175,6 +199,8 @@ export function VariantsManager({
               </div>
             ) : null}
           </article>
+            );
+          })()
         ))}
       </div>
 
@@ -198,7 +224,10 @@ export function VariantsManager({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {variants.map((variant) => (
+              {variants.map((variant) => {
+                const stockTone = getStockTone(variant.stock);
+
+                return (
                 <tr
                   key={variant.id}
                   className="transition hover:bg-slate-50/80"
@@ -256,9 +285,14 @@ export function VariantsManager({
                     </div>
                   </td>
                   <td className="px-4 py-4 text-right sm:px-5">
-                    <span className="inline-flex min-w-16 items-center justify-center rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
+                    <span
+                      className={`inline-flex min-w-16 items-center justify-center rounded-xl px-3 py-2 font-semibold ${stockTone.badgeClassName}`}
+                    >
                       {variant.stock}
                     </span>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      {stockTone.label}
+                    </p>
                   </td>
                   <td className="px-4 py-4 text-right sm:px-5">
                     <span className="font-semibold tabular-nums text-slate-900">
@@ -279,6 +313,9 @@ export function VariantsManager({
                           hiddenFields={[
                             { name: "variantId", value: variant.id },
                             { name: "productId", value: productId },
+                            { name: "size", value: selectedSize },
+                            { name: "color", value: selectedColor },
+                            { name: "stock", value: selectedStock },
                           ]}
                           confirmMessage="A je i sigurt qe don ta fshish kete variant?"
                           buttonLabel="Fshi"
@@ -288,7 +325,8 @@ export function VariantsManager({
                     </td>
                   ) : null}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

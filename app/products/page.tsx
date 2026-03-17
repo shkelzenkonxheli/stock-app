@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
+import { LOW_STOCK_THRESHOLD, getStockTone } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 import { ProductsFilters } from "./products-filters";
 
@@ -179,17 +180,25 @@ export default async function ProductsPage({
                     ...new Set(product.variants.map((variant) => variant.size)),
                   ];
                   const colors = [
-                    ...new Set(product.variants.map((variant) => variant.color)),
+                    ...new Set(
+                      product.variants.map((variant) => variant.color),
+                    ),
                   ];
                   const totalStock = product.variants.reduce(
                     (sum, variant) => sum + variant.stock,
                     0,
                   );
+                  const lowStockVariantsCount = product.variants.filter(
+                    (variant) =>
+                      variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
+                  ).length;
                   const prices = product.variants.map((variant) =>
                     Number(variant.price),
                   );
-                  const minPrice = prices.length > 0 ? Math.min(...prices) : null;
-                  const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
+                  const minPrice =
+                    prices.length > 0 ? Math.min(...prices) : null;
+                  const maxPrice =
+                    prices.length > 0 ? Math.max(...prices) : null;
 
                   return (
                     <article
@@ -207,6 +216,9 @@ export default async function ProductsPage({
                         </div>
                         <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                           {product.variants.length} var
+                          {lowStockVariantsCount > 0
+                            ? ` (${lowStockVariantsCount} low)`
+                            : ""}
                         </span>
                       </div>
 
@@ -238,13 +250,17 @@ export default async function ProductsPage({
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                             Numrat
                           </p>
-                          <p className="mt-1">{sizes.length > 0 ? sizes.join(", ") : "-"}</p>
+                          <p className="mt-1">
+                            {sizes.length > 0 ? sizes.join(", ") : "-"}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                             Ngjyrat
                           </p>
-                          <p className="mt-1">{colors.length > 0 ? colors.join(", ") : "-"}</p>
+                          <p className="mt-1">
+                            {colors.length > 0 ? colors.join(", ") : "-"}
+                          </p>
                         </div>
                       </div>
 
@@ -281,116 +297,129 @@ export default async function ProductsPage({
               </div>
 
               <div className="hidden overflow-x-auto lg:block">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50/90 text-left">
-                  <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    <th className="px-5 py-4">Modeli</th>
-                    <th className="px-5 py-4">Brendi</th>
-                    <th className="px-5 py-4">Numrat</th>
-                    <th className="px-5 py-4">Ngjyrat</th>
-                    <th className="px-5 py-4 text-center">Variante</th>
-                    <th className="px-5 py-4 text-center">Stoku</th>
-                    <th className="px-5 py-4 text-right">Cmimi</th>
-                    <th className="px-5 py-4 text-right">Veprime</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {products.map((product) => {
-                    const sizes = [
-                      ...new Set(
-                        product.variants.map((variant) => variant.size),
-                      ),
-                    ];
-                    const colors = [
-                      ...new Set(
-                        product.variants.map((variant) => variant.color),
-                      ),
-                    ];
-                    const totalStock = product.variants.reduce(
-                      (sum, variant) => sum + variant.stock,
-                      0,
-                    );
-                    const prices = product.variants.map((variant) =>
-                      Number(variant.price),
-                    );
-                    const minPrice =
-                      prices.length > 0 ? Math.min(...prices) : null;
-                    const maxPrice =
-                      prices.length > 0 ? Math.max(...prices) : null;
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50/90 text-left">
+                    <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      <th className="px-5 py-4">Modeli</th>
+                      <th className="px-5 py-4">Brendi</th>
+                      <th className="px-5 py-4">Numrat</th>
+                      <th className="px-5 py-4">Ngjyrat</th>
+                      <th className="px-5 py-4 text-center">Variante</th>
+                      <th className="px-5 py-4 text-center">Stoku</th>
+                      <th className="px-5 py-4 text-right">Cmimi</th>
+                      <th className="px-5 py-4 text-right">Veprime</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {products.map((product) => {
+                      const sizes = [
+                        ...new Set(
+                          product.variants.map((variant) => variant.size),
+                        ),
+                      ];
+                      const colors = [
+                        ...new Set(
+                          product.variants.map((variant) => variant.color),
+                        ),
+                      ];
+                      const totalStock = product.variants.reduce(
+                        (sum, variant) => sum + variant.stock,
+                        0,
+                      );
+                      const lowStockVariantsCount = product.variants.filter(
+                        (variant) =>
+                          variant.stock > 0 &&
+                          variant.stock <= LOW_STOCK_THRESHOLD,
+                      ).length;
+                      const prices = product.variants.map((variant) =>
+                        Number(variant.price),
+                      );
+                      const minPrice =
+                        prices.length > 0 ? Math.min(...prices) : null;
+                      const maxPrice =
+                        prices.length > 0 ? Math.max(...prices) : null;
 
-                    return (
-                      <tr
-                        key={product.id}
-                        className="align-top transition hover:bg-sky-50/40"
-                      >
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="font-semibold text-slate-950">
-                              {product.name}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {product.brand}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {sizes.length > 0 ? sizes.join(", ") : "-"}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {colors.length > 0 ? colors.join(", ") : "-"}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
-                            {product.variants.length}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <span className="inline-flex min-w-14 items-center justify-center rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
-                            {totalStock}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right font-semibold tabular-nums text-slate-900">
-                          {minPrice === null
-                            ? "-"
-                            : minPrice === maxPrice
-                              ? `${minPrice.toFixed(2)} EUR`
-                              : `${minPrice.toFixed(2)} - ${maxPrice?.toFixed(2)} EUR`}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Link
-                              href={`/products/${product.id}`}
-                              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                      return (
+                        <tr
+                          key={product.id}
+                          className="align-top transition hover:bg-sky-50/40"
+                        >
+                          <td className="px-5 py-4">
+                            <div>
+                              <p className="font-semibold text-slate-950">
+                                {product.name}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">
+                            {product.brand}
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">
+                            {sizes.length > 0 ? sizes.join(", ") : "-"}
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">
+                            {colors.length > 0 ? colors.join(", ") : "-"}
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
+                              {product.variants.length}
+                              {lowStockVariantsCount > 0
+                                ? ` (${lowStockVariantsCount} low)`
+                                : ""}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span
+                              className={`inline-flex min-w-14 items-center justify-center rounded-xl px-3 py-2 font-semibold ${
+                                getStockTone(totalStock).badgeClassName
+                              }`}
                             >
-                              Menaxho
-                            </Link>
-                            {canManageInventory ? (
+                              {totalStock}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right font-semibold tabular-nums text-slate-900">
+                            {minPrice === null
+                              ? "-"
+                              : minPrice === maxPrice
+                                ? `${minPrice.toFixed(2)} EUR`
+                                : `${minPrice.toFixed(2)} - ${maxPrice?.toFixed(2)} EUR`}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex justify-end gap-2">
                               <Link
-                                href={`/products/${product.id}/edit`}
+                                href={`/products/${product.id}`}
                                 className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                               >
-                                Edito
+                                Menaxho
                               </Link>
-                            ) : null}
-                            {canManageInventory && product.variants.length === 0 ? (
-                              <ConfirmActionForm
-                                action={deleteProduct}
-                                hiddenFields={[
-                                  { name: "productId", value: product.id },
-                                ]}
-                                confirmMessage="A je i sigurt qe don ta fshish kete produkt?"
-                                buttonLabel="Fshi"
-                                className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 font-semibold text-rose-700 transition hover:bg-rose-100"
-                              />
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              {canManageInventory ? (
+                                <Link
+                                  href={`/products/${product.id}/edit`}
+                                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                                >
+                                  Edito
+                                </Link>
+                              ) : null}
+                              {canManageInventory &&
+                              product.variants.length === 0 ? (
+                                <ConfirmActionForm
+                                  action={deleteProduct}
+                                  hiddenFields={[
+                                    { name: "productId", value: product.id },
+                                  ]}
+                                  confirmMessage="A je i sigurt qe don ta fshish kete produkt?"
+                                  buttonLabel="Fshi"
+                                  className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 font-semibold text-rose-700 transition hover:bg-rose-100"
+                                />
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </section>
@@ -398,7 +427,11 @@ export default async function ProductsPage({
         {totalProducts > PAGE_SIZE ? (
           <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200/80 bg-white px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-600">
-              Faqja <span className="font-semibold text-slate-950">{currentPage}</span> nga{" "}
+              Faqja{" "}
+              <span className="font-semibold text-slate-950">
+                {currentPage}
+              </span>{" "}
+              nga{" "}
               <span className="font-semibold text-slate-950">{totalPages}</span>
             </p>
             <div className="flex gap-2">

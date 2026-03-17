@@ -253,6 +253,53 @@ export default async function EditVariantPage({
           errorMessage={errorMessage}
         />
 
+        <section className="mt-5 rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Printo etiketa
+              </p>
+              <h2 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+                Gati per barcode labels
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Hap preview dhe printo etiketa per kete variant. Sasia fillestare
+                vendoset sa eshte stoku aktual.
+              </p>
+            </div>
+
+            <form
+              action={`/products/${productId}/variants/${variant.id}/labels`}
+              method="get"
+              target="_blank"
+              className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            >
+              <div className="space-y-2">
+                <label
+                  htmlFor="qty"
+                  className="block text-sm font-medium text-slate-800"
+                >
+                  Sa etiketa
+                </label>
+                <input
+                  id="qty"
+                  name="qty"
+                  type="number"
+                  min="1"
+                  defaultValue={Math.max(variant.stock, 1)}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200 sm:w-32"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-100"
+              >
+                Hap preview
+              </button>
+            </form>
+          </div>
+        </section>
+
         <form action={updateVariant} className="mt-5 space-y-5">
           <input type="hidden" name="productId" value={productId} />
           <input type="hidden" name="variantId" value={variant.id} />

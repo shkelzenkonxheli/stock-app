@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
+import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
@@ -15,8 +16,42 @@ type ProductDetailsPageProps = {
     size?: string;
     color?: string;
     stock?: string;
+    feedback?: string;
+    feedbackType?: string;
   }>;
 };
+
+function buildProductDetailsHref(
+  productId: number,
+  options: {
+    size?: string;
+    color?: string;
+    stock?: string;
+    feedback?: string;
+    feedbackType?: string;
+  } = {},
+) {
+  const params = new URLSearchParams();
+
+  if (options.size) {
+    params.set("size", options.size);
+  }
+  if (options.color) {
+    params.set("color", options.color);
+  }
+  if (options.stock) {
+    params.set("stock", options.stock);
+  }
+  if (options.feedback) {
+    params.set("feedback", options.feedback);
+  }
+  if (options.feedbackType) {
+    params.set("feedbackType", options.feedbackType);
+  }
+
+  const query = params.toString();
+  return query ? `/products/${productId}?${query}` : `/products/${productId}`;
+}
 
 async function deleteVariant(formData: FormData) {
   "use server";
@@ -25,6 +60,9 @@ async function deleteVariant(formData: FormData) {
 
   const variantId = Number(formData.get("variantId"));
   const productId = Number(formData.get("productId"));
+  const selectedSize = formData.get("size")?.toString() || "";
+  const selectedColor = formData.get("color")?.toString() || "";
+  const selectedStock = formData.get("stock")?.toString() || "";
 
   if (!variantId || !productId) {
     return;
@@ -44,6 +82,15 @@ async function deleteVariant(formData: FormData) {
   });
 
   if (!variantWithOrders || variantWithOrders.orders.length > 0) {
+    redirect(
+      buildProductDetailsHref(productId, {
+        size: selectedSize,
+        color: selectedColor,
+        stock: selectedStock,
+        feedback: "Ky variant nuk u fshi sepse ka histori porosish.",
+        feedbackType: "error",
+      }),
+    );
     return;
   }
 
@@ -55,6 +102,16 @@ async function deleteVariant(formData: FormData) {
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   revalidatePath("/orders/new");
+
+  redirect(
+    buildProductDetailsHref(productId, {
+      size: selectedSize,
+      color: selectedColor,
+      stock: selectedStock,
+      feedback: "Varianti u fshi me sukses.",
+      feedbackType: "success",
+    }),
+  );
 }
 
 async function bulkDeleteVariants(formData: FormData) {
@@ -64,6 +121,9 @@ async function bulkDeleteVariants(formData: FormData) {
 
   const productId = Number(formData.get("productId"));
   const variantIdsRaw = formData.get("variantIds")?.toString();
+  const selectedSize = formData.get("size")?.toString() || "";
+  const selectedColor = formData.get("color")?.toString() || "";
+  const selectedStock = formData.get("stock")?.toString() || "";
 
   if (!productId || !variantIdsRaw) {
     return;
@@ -118,6 +178,15 @@ async function bulkDeleteVariants(formData: FormData) {
     .map((variant) => variant.id);
 
   if (deletableIds.length === 0) {
+    redirect(
+      buildProductDetailsHref(productId, {
+        size: selectedSize,
+        color: selectedColor,
+        stock: selectedStock,
+        feedback: "Asnje variant nuk u fshi sepse te gjitha kane histori porosish.",
+        feedbackType: "error",
+      }),
+    );
     return;
   }
 
@@ -134,6 +203,21 @@ async function bulkDeleteVariants(formData: FormData) {
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   revalidatePath("/orders/new");
+
+  const blockedCount = variants.length - deletableIds.length;
+
+  redirect(
+    buildProductDetailsHref(productId, {
+      size: selectedSize,
+      color: selectedColor,
+      stock: selectedStock,
+      feedback:
+        blockedCount > 0
+          ? `${deletableIds.length} variante u fshine. ${blockedCount} nuk u fshine sepse kane histori porosish.`
+          : `${deletableIds.length} variante u fshine me sukses.`,
+      feedbackType: blockedCount > 0 ? "warning" : "success",
+    }),
+  );
 }
 
 export default async function ProductDetailsPage({
@@ -152,6 +236,8 @@ export default async function ProductDetailsPage({
   const selectedSize = resolvedSearchParams?.size?.trim() || "";
   const selectedColor = resolvedSearchParams?.color?.trim() || "";
   const selectedStock = resolvedSearchParams?.stock?.trim() || "";
+  const feedbackMessage = resolvedSearchParams?.feedback?.trim() || "";
+  const feedbackType = resolvedSearchParams?.feedbackType?.trim() || "";
 
   const variantsWhere: Prisma.VariantWhereInput = {
     productId,
@@ -228,6 +314,9 @@ export default async function ProductDetailsPage({
     (sum, variant) => sum + variant.stock,
     0,
   );
+  const lowStockVariantsCount = allVariants.filter(
+    (variant) => variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
+  ).length;
   const colors = [...new Set(allVariants.map((variant) => variant.color))];
   const sizes = [...new Set(allVariants.map((variant) => variant.size))];
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
@@ -250,6 +339,11 @@ export default async function ProductDetailsPage({
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
                 {totalStock} cope ne stok
               </span>
+              {lowStockVariantsCount > 0 ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-700">
+                  {lowStockVariantsCount} stok i ulet
+                </span>
+              ) : null}
             </div>
 
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -291,6 +385,20 @@ export default async function ProductDetailsPage({
             </div>
           ) : (
             <div className="space-y-4">
+              {feedbackMessage ? (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-sm ${
+                    feedbackType === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : feedbackType === "warning"
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : "border-rose-200 bg-rose-50 text-rose-700"
+                  }`}
+                >
+                  {feedbackMessage}
+                </div>
+              ) : null}
+
               <ProductVariantsFilters
                 selectedSize={selectedSize}
                 selectedColor={selectedColor}
@@ -317,6 +425,9 @@ export default async function ProductDetailsPage({
                 productId={product.id}
                 productName={product.name}
                 canManageInventory={canManageInventory}
+                selectedSize={selectedSize}
+                selectedColor={selectedColor}
+                selectedStock={selectedStock}
                 variants={filteredVariants.map((variant) => ({
                   id: variant.id,
                   size: variant.size,

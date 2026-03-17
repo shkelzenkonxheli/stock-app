@@ -48,7 +48,7 @@ export default async function RootLayout({
       >
         <div className="min-h-screen">
           {currentUser ? (
-            <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+            <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur print:hidden">
               <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
                 <div className="flex min-w-0 items-center gap-3">
                   <Link
