@@ -135,10 +135,10 @@ export default async function Home() {
     },
     {
       title: "Hyrje Stoku",
-      subtitle: "Coming Soon",
+      subtitle: "Shto stok me shpejt",
+      href: "/stock/incoming",
       color: "bg-violet-500",
       visible: canManageInventory,
-      disabled: true,
       icon: (
         <svg
           viewBox="0 0 24 24"

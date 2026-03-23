@@ -164,6 +164,23 @@ export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDecimalFilter<$PrismaModel>
 }
 
+export type EnumStockMovementReasonFilter<$PrismaModel = never> = {
+  equals?: $Enums.StockMovementReason | Prisma.EnumStockMovementReasonFieldRefInput<$PrismaModel>
+  in?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel> | $Enums.StockMovementReason
+}
+
+export type EnumStockMovementReasonWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.StockMovementReason | Prisma.EnumStockMovementReasonFieldRefInput<$PrismaModel>
+  in?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStockMovementReasonWithAggregatesFilter<$PrismaModel> | $Enums.StockMovementReason
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel>
+}
+
 export type EnumOrderSourceFilter<$PrismaModel = never> = {
   equals?: $Enums.OrderSource | Prisma.EnumOrderSourceFieldRefInput<$PrismaModel>
   in?: $Enums.OrderSource[] | Prisma.ListEnumOrderSourceFieldRefInput<$PrismaModel>
@@ -403,6 +420,23 @@ export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedDecimalFilter<$PrismaModel>
   _min?: Prisma.NestedDecimalFilter<$PrismaModel>
   _max?: Prisma.NestedDecimalFilter<$PrismaModel>
+}
+
+export type NestedEnumStockMovementReasonFilter<$PrismaModel = never> = {
+  equals?: $Enums.StockMovementReason | Prisma.EnumStockMovementReasonFieldRefInput<$PrismaModel>
+  in?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel> | $Enums.StockMovementReason
+}
+
+export type NestedEnumStockMovementReasonWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.StockMovementReason | Prisma.EnumStockMovementReasonFieldRefInput<$PrismaModel>
+  in?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StockMovementReason[] | Prisma.ListEnumStockMovementReasonFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStockMovementReasonWithAggregatesFilter<$PrismaModel> | $Enums.StockMovementReason
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumStockMovementReasonFilter<$PrismaModel>
 }
 
 export type NestedEnumOrderSourceFilter<$PrismaModel = never> = {

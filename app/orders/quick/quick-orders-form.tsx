@@ -31,9 +31,7 @@ type QuickOrderRow = {
   id: string;
   productId: string;
   variantId: string;
-  customerName: string;
-  reference: string;
-  price: string;
+  quantity: string;
 };
 
 const sourceOptions: Array<{ value: OrderSource; label: string }> = [
@@ -47,9 +45,7 @@ function createEmptyRow(): QuickOrderRow {
     id: crypto.randomUUID(),
     productId: "",
     variantId: "",
-    customerName: "",
-    reference: "",
-    price: "",
+    quantity: "1",
   };
 }
 
@@ -119,11 +115,15 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
 
     for (const row of rows) {
       const variantId = Number(row.variantId);
+      const quantity = Number(row.quantity);
       if (!variantId) {
         continue;
       }
 
-      totals.set(variantId, (totals.get(variantId) ?? 0) + 1);
+      totals.set(
+        variantId,
+        (totals.get(variantId) ?? 0) + (quantity > 0 ? quantity : 0),
+      );
     }
 
     return totals;
@@ -145,19 +145,6 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
             ...row,
             productId: value,
             variantId: "",
-            price: "",
-          };
-        }
-
-        if (field === "variantId") {
-          const variant = Object.values(variantsByProduct)
-            .flat()
-            .find((item) => item.id === Number(value));
-
-          return {
-            ...row,
-            variantId: value,
-            price: variant ? variant.price.toFixed(2) : row.price,
           };
         }
 
@@ -205,23 +192,13 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     rows
       .map((row) => ({
         variantId: Number(row.variantId),
-        customerName: row.customerName.trim(),
-        reference: row.reference.trim(),
-        price: row.price.trim(),
+        quantity: Number(row.quantity),
       }))
-      .filter(
-        (row) =>
-          row.variantId > 0 &&
-          row.customerName.length > 0 &&
-          row.price.length > 0,
-      ),
+      .filter((row) => row.variantId > 0 && row.quantity > 0),
   );
 
   const readyRows = rows.filter(
-    (row) =>
-      Number(row.variantId) > 0 &&
-      row.customerName.trim().length > 0 &&
-      row.price.trim().length > 0,
+    (row) => Number(row.variantId) > 0 && Number(row.quantity) > 0,
   ).length;
   const selectedVariantsPreview = rows
     .map((row) => {
@@ -242,27 +219,37 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
       <input type="hidden" name="source" value={source} />
       <input type="hidden" name="rows" value={serializedRows} />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-        <span className="text-sm font-medium text-slate-800">Burimi:</span>
-        <div className="flex flex-wrap gap-2">
-          {sourceOptions.map((option) => {
-            const active = source === option.value;
+      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.05)] sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Burimi
+            </p>
+            <p className="mt-1 text-sm text-slate-700">
+              Zgjedhe kanalin per kete batch porosish.
+            </p>
+          </div>
 
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setSource(option.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                  active
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
+          <div className="flex flex-wrap gap-2">
+            {sourceOptions.map((option) => {
+              const active = source === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSource(option.value)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                    active
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -299,11 +286,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                   </span>
                 ) : null}
               </div>
-            ) : (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                {readyRows} gati
-              </span>
-            )}
+            ) : null}
           </div>
           <button
             type="button"
@@ -314,6 +297,18 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <span>
+            Default sasia eshte `1`, por mund ta ndryshosh nese nje porosi ka me shume pale te te njejtit variant.
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+            {readyRows} gati
+          </span>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+            {rows.reduce((sum, row) => sum + (Number(row.quantity) > 0 ? Number(row.quantity) : 0), 0)} pale
+          </span>
+        </div>
+
         <div className="space-y-3 lg:hidden">
           {rows.map((row, index) => {
             const selectedProductId = Number(row.productId);
@@ -321,14 +316,23 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
               ? variantsByProduct[selectedProductId] ?? []
               : [];
             const rowVariantId = Number(row.variantId);
+            const rowQuantity = Number(row.quantity) > 0 ? Number(row.quantity) : 0;
             const filteredVariants = productVariants
               .map((variant) => ({
                 ...variant,
                 availableStock:
                   variant.stock -
-                  ((variantUsage.get(variant.id) ?? 0) - (variant.id === rowVariantId ? 1 : 0)),
+                  ((variantUsage.get(variant.id) ?? 0) -
+                    (variant.id === rowVariantId ? rowQuantity : 0)),
               }))
-              .filter((variant) => variant.availableStock > 0 || variant.id === rowVariantId);
+              .filter(
+                (variant) => variant.availableStock > 0 || variant.id === rowVariantId,
+              );
+            const remainingAfterSelection = Math.max(
+              0,
+              (filteredVariants.find((variant) => variant.id === rowVariantId)
+                ?.availableStock ?? 0) - rowQuantity,
+            );
             const isLoadingVariants = selectedProductId
               ? Boolean(loadingProducts[selectedProductId])
               : false;
@@ -361,78 +365,82 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
-                  <select
-                    value={row.productId}
-                    onChange={(event) =>
-                      updateRow(row.id, "productId", event.target.value)
-                    }
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                  >
-                    <option value="">Zgjedh produktin</option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.label}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px] sm:items-end">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-800">
+                      Produkti
+                    </label>
+                    <select
+                      value={row.productId}
+                      onChange={(event) =>
+                        updateRow(row.id, "productId", event.target.value)
+                      }
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    >
+                      <option value="">Zgjedh produktin</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-800">
+                      Varianti
+                    </label>
+                    <select
+                      value={row.variantId}
+                      onChange={(event) =>
+                        updateRow(row.id, "variantId", event.target.value)
+                      }
+                      disabled={!row.productId || isLoadingVariants}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">
+                        {!row.productId
+                          ? "Zgjedh produktin"
+                          : isLoadingVariants
+                            ? "Duke ngarkuar variantet..."
+                            : filteredVariants.length === 0
+                              ? "Nuk ka stok"
+                              : "Zgjedh variantin"}
                       </option>
-                    ))}
-                  </select>
+                      {filteredVariants.map((variant) => (
+                        <option key={variant.id} value={variant.id}>
+                          Nr {variant.size} | {variant.color} | stok {variant.availableStock}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  <select
-                    value={row.variantId}
-                    onChange={(event) =>
-                      updateRow(row.id, "variantId", event.target.value)
-                    }
-                    disabled={!row.productId || isLoadingVariants}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {!row.productId
-                        ? "Zgjedh produktin"
-                        : isLoadingVariants
-                          ? "Duke ngarkuar variantet..."
-                          : filteredVariants.length === 0
-                            ? "Nuk ka stok"
-                            : "Zgjedh variantin"}
-                    </option>
-                    {filteredVariants.map((variant) => (
-                      <option key={variant.id} value={variant.id}>
-                        Nr {variant.size} | {variant.color} | stok {variant.availableStock}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    value={row.customerName}
-                    onChange={(event) =>
-                      updateRow(row.id, "customerName", event.target.value)
-                    }
-                    placeholder="Emri i klientit"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                  />
-
-                  <input
-                    type="text"
-                    value={row.reference}
-                    onChange={(event) =>
-                      updateRow(row.id, "reference", event.target.value)
-                    }
-                    placeholder="Referenca / username"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                  />
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={row.price}
-                    onChange={(event) =>
-                      updateRow(row.id, "price", event.target.value)
-                    }
-                    placeholder="Cmimi"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                  />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-800">
+                      Sasia
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={row.quantity}
+                      onChange={(event) =>
+                        updateRow(row.id, "quantity", event.target.value)
+                      }
+                      placeholder="1"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    />
+                  </div>
                 </div>
+
+                {row.variantId ? (
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    Stoku i mbetur per kete zgjedhje:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {remainingAfterSelection}
+                    </span>
+                  </div>
+                ) : null}
 
               </div>
             );
@@ -440,14 +448,12 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
         </div>
 
         <div className="hidden overflow-x-auto lg:block">
-          <table className="min-w-[980px] w-full text-sm">
+          <table className="min-w-[760px] w-full text-sm">
             <thead className="bg-slate-50 text-left">
               <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <th className="px-4 py-3">Produkti</th>
                 <th className="px-4 py-3">Varianti</th>
-                <th className="px-4 py-3">Klienti</th>
-                <th className="px-4 py-3">Referenca</th>
-                <th className="px-4 py-3">Cmimi</th>
+                <th className="px-4 py-3">Sasia</th>
                 <th className="px-4 py-3 text-right">Veprime</th>
               </tr>
             </thead>
@@ -458,14 +464,23 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                   ? variantsByProduct[selectedProductId] ?? []
                   : [];
                 const rowVariantId = Number(row.variantId);
+                const rowQuantity = Number(row.quantity) > 0 ? Number(row.quantity) : 0;
                 const filteredVariants = productVariants
                   .map((variant) => ({
                     ...variant,
                     availableStock:
                       variant.stock -
-                      ((variantUsage.get(variant.id) ?? 0) - (variant.id === rowVariantId ? 1 : 0)),
+                      ((variantUsage.get(variant.id) ?? 0) -
+                        (variant.id === rowVariantId ? rowQuantity : 0)),
                   }))
-                  .filter((variant) => variant.availableStock > 0 || variant.id === rowVariantId);
+                  .filter(
+                    (variant) => variant.availableStock > 0 || variant.id === rowVariantId,
+                  );
+                const remainingAfterSelection = Math.max(
+                  0,
+                  (filteredVariants.find((variant) => variant.id === rowVariantId)
+                    ?.availableStock ?? 0) - rowQuantity,
+                );
                 const isLoadingVariants = selectedProductId
                   ? Boolean(loadingProducts[selectedProductId])
                   : false;
@@ -473,6 +488,9 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                 return (
                   <tr key={row.id}>
                     <td className="px-4 py-3">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
+                        Produkti
+                      </label>
                       <select
                         value={row.productId}
                         onChange={(event) =>
@@ -489,6 +507,9 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                       </select>
                     </td>
                     <td className="px-4 py-3">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
+                        Varianti
+                      </label>
                       <div className="space-y-2">
                         <select
                           value={row.variantId}
@@ -513,44 +534,36 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                             </option>
                           ))}
                         </select>
+                        {row.variantId ? (
+                          <p className="text-xs font-medium text-slate-500">
+                            Stoku i mbetur:{" "}
+                            <span className="font-semibold text-slate-900">
+                              {remainingAfterSelection}
+                            </span>
+                          </p>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={row.customerName}
-                        onChange={(event) =>
-                          updateRow(row.id, "customerName", event.target.value)
-                        }
-                        placeholder="Emri"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={row.reference}
-                        onChange={(event) =>
-                          updateRow(row.id, "reference", event.target.value)
-                        }
-                        placeholder="Instagram / tel"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
+                        Sasia
+                      </label>
                       <input
                         type="number"
-                        min="0"
-                        step="0.01"
-                        value={row.price}
+                        min="1"
+                        step="1"
+                        value={row.quantity}
                         onChange={(event) =>
-                          updateRow(row.id, "price", event.target.value)
+                          updateRow(row.id, "quantity", event.target.value)
                         }
-                        placeholder="0.00"
+                        placeholder="1"
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                       />
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
+                        Veprime
+                      </label>
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"

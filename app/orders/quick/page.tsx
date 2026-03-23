@@ -47,25 +47,19 @@ async function createQuickOrders(formData: FormData) {
 
       const candidate = row as {
         variantId?: unknown;
-        customerName?: unknown;
-        reference?: unknown;
-        price?: unknown;
+        quantity?: unknown;
       };
 
       const variantId = Number(candidate.variantId);
-      const customerName = String(candidate.customerName ?? "").trim();
-      const reference = String(candidate.reference ?? "").trim();
-      const price = String(candidate.price ?? "").trim();
+      const quantity = Number(candidate.quantity);
 
-      if (!variantId || !customerName || !price) {
+      if (!variantId || Number.isNaN(quantity) || quantity <= 0) {
         return null;
       }
 
       return {
         variantId,
-        customerName,
-        reference,
-        price,
+        quantity,
       };
     })
     .filter(
@@ -73,9 +67,7 @@ async function createQuickOrders(formData: FormData) {
         row,
       ): row is {
         variantId: number;
-        customerName: string;
-        reference: string;
-        price: string;
+        quantity: number;
       } => row !== null,
     );
 
@@ -88,7 +80,7 @@ async function createQuickOrders(formData: FormData) {
   for (const row of rows) {
     requestedByVariant.set(
       row.variantId,
-      (requestedByVariant.get(row.variantId) ?? 0) + 1,
+      (requestedByVariant.get(row.variantId) ?? 0) + row.quantity,
     );
   }
 
@@ -123,16 +115,16 @@ async function createQuickOrders(formData: FormData) {
     for (const row of rows) {
       await tx.order.create({
         data: {
-          customerName: row.customerName,
-          phone: row.reference || "-",
-          instagram: row.reference || null,
+          customerName: "Quick Order",
+          phone: "-",
+          instagram: null,
           source,
-          quantity: 1,
+          quantity: row.quantity,
           variantId: row.variantId,
           items: {
             create: {
               variantId: row.variantId,
-              quantity: 1,
+              quantity: row.quantity,
             },
           },
         },
@@ -179,7 +171,7 @@ function getErrorMessage(error?: string) {
     case "variant":
       return "Nje nga variantet nuk ekziston me.";
     case "validation":
-      return "Ploteso variantin, klientin dhe cmimin per cdo rresht qe don te ruash.";
+      return "Ploteso variantin dhe nje sasi valide per cdo rresht qe don te ruash.";
     default:
       return null;
   }
@@ -223,7 +215,7 @@ export default async function QuickOrdersPage({
               Porosi te shpejta
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Cdo rresht ruhet si nje porosi me 1 pale dhe stoku zbritet automatikisht.
+              Cdo rresht ruhet si nje porosi dhe stoku zbritet automatikisht sipas sasise.
             </p>
           </div>
 

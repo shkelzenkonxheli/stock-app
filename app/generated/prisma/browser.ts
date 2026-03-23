@@ -28,6 +28,11 @@ export type Product = Prisma.ProductModel
  */
 export type Variant = Prisma.VariantModel
 /**
+ * Model StockMovement
+ * 
+ */
+export type StockMovement = Prisma.StockMovementModel
+/**
  * Model Order
  * 
  */

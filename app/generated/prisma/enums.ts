@@ -35,3 +35,11 @@ export const UserRole = {
 } as const
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+
+
+export const StockMovementReason = {
+  INCOMING_STOCK: 'INCOMING_STOCK',
+  CUSTOMER_RETURN: 'CUSTOMER_RETURN'
+} as const
+
+export type StockMovementReason = (typeof StockMovementReason)[keyof typeof StockMovementReason]

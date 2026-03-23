@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
+import { FlashMessage } from "@/app/components/flash-message";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
@@ -331,15 +332,11 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
           </div>
 
           {message && !isAddOpen && !editUser && !resetUser ? (
-            <div
-              className={`mx-4 mt-4 rounded-2xl px-4 py-3 text-sm sm:mx-5 lg:mx-6 ${
-                message.type === "error"
-                  ? "border border-rose-200 bg-rose-50 text-rose-700"
-                  : "border border-emerald-200 bg-emerald-50 text-emerald-700"
-              }`}
-            >
-              {message.text}
-            </div>
+            <FlashMessage
+              type={message.type}
+              text={message.text}
+              className="mx-4 mt-4 rounded-2xl px-4 py-3 text-sm sm:mx-5 lg:mx-6"
+            />
           ) : null}
 
           <div className="grid gap-4 p-4 sm:p-5 lg:hidden">

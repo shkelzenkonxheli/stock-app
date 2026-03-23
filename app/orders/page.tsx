@@ -381,7 +381,7 @@ export default async function OrdersPage({
     },
   };
 
-  const [orders, totalOrders] = await Promise.all([
+  const [orders, totalOrders, totalPiecesAggregate] = await Promise.all([
     prisma.order.findMany({
       where,
       orderBy: {
@@ -434,7 +434,14 @@ export default async function OrdersPage({
       },
     }),
     prisma.order.count({ where }),
+    prisma.order.aggregate({
+      where,
+      _sum: {
+        quantity: true,
+      },
+    }),
   ]);
+  const totalPieces = totalPiecesAggregate._sum.quantity ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
@@ -497,10 +504,30 @@ export default async function OrdersPage({
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[32px]  bg-white/95 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
           <div className="flex flex-col gap-6 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <div>
+            <div className="space-y-4">
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
                 Te gjitha porosite
               </h1>
+            </div>
+
+            <div className="flex flex-wrap gap-3 lg:justify-center">
+              <div className="min-w-28 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+                  Porosite
+                </p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-sky-900">
+                  {totalOrders}
+                </p>
+              </div>
+
+              <div className="min-w-28 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  Copa
+                </p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-emerald-900">
+                  {totalPieces}
+                </p>
+              </div>
             </div>
 
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
