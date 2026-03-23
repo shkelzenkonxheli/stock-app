@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import {
   ProductImageUploadError,
@@ -270,9 +271,11 @@ export default async function NewProductVariantPage({
         </div>
         <VariantRowsForm productId={product.id} action={createVariants} />
         {errorMessage ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {errorMessage}
-          </div>
+          <FlashMessage
+            type="error"
+            text={errorMessage}
+            className="mt-4 rounded-2xl px-4 py-3 text-sm"
+          />
         ) : null}
       </div>
     </main>

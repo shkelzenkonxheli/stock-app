@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FlashMessage } from "@/app/components/flash-message";
 import { ImageFileInput } from "@/app/components/image-file-input";
 import { UploadedImage } from "@/app/components/uploaded-image";
 
@@ -30,9 +31,11 @@ export function VariantImageUploadForm({
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="variantId" value={variantId} />
       {errorMessage ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {errorMessage}
-        </div>
+        <FlashMessage
+          type="error"
+          text={errorMessage}
+          className="rounded-2xl px-4 py-3 text-sm"
+        />
       ) : null}
       <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
         <div className="flex flex-col gap-4">

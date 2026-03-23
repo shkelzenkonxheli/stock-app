@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuickOrdersForm } from "./quick-orders-form";
@@ -236,9 +237,11 @@ export default async function QuickOrdersPage({
         </div>
 
         {errorMessage ? (
-          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-700 shadow-sm">
-            {errorMessage}
-          </div>
+          <FlashMessage
+            type="error"
+            text={errorMessage}
+            className="mt-6 rounded-2xl px-4 py-3 text-sm shadow-sm"
+          />
         ) : null}
 
         <QuickOrdersForm

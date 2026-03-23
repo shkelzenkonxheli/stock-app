@@ -300,7 +300,6 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       : null;
   const isAddOpen =
     resolvedSearchParams?.add === "1" ||
-    resolvedSearchParams?.success === "created" ||
     (Boolean(resolvedSearchParams?.error) && !resolvedSearchParams?.edit && !resolvedSearchParams?.reset);
 
   return (

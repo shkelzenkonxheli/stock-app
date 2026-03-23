@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { prisma } from "@/lib/prisma";
 import { createSession, getCurrentUser } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
@@ -96,9 +97,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </h1>
 
           {errorMessage ? (
-            <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {errorMessage}
-            </div>
+            <FlashMessage
+              type="error"
+              text={errorMessage}
+              className="mt-6 rounded-2xl px-4 py-3 text-sm"
+            />
           ) : null}
 
           <form action={login} className="mt-8 space-y-5">
