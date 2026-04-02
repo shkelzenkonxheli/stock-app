@@ -217,8 +217,8 @@ export default async function IncomingStockPage({
   });
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7_0%,transparent_20%),radial-gradient(circle_at_top_right,#dbeafe_0%,transparent_24%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
-      <section className="mx-auto w-full max-w-7xl rounded-[32px] border border-slate-200/80 bg-white/95 px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:px-8">
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
+      <section className="mx-auto w-full max-w-7xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -264,38 +264,48 @@ export default async function IncomingStockPage({
           }))}
         />
 
-        <section className="mt-8">
-          <details className="group rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+        <section className="mt-10">
+          <details className="group">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">
+                <h2 className="text-3xl font-semibold tracking-tight text-slate-950">
                   Historia e hyrjeve
                 </h2>
-                <p className="text-sm text-slate-600">
-                  Hap vetem nese don me i pa 20 levizjet e fundit.
-                </p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 shadow-sm">
                   {recentMovements.length} levizje
                 </span>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition group-open:rotate-180">
-                  ˅
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition group-open:rotate-180">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m6 9 6 6 6-6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </span>
               </div>
             </summary>
 
             {recentMovements.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+              <div className="mt-5 rounded-[28px] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
                 <p className="text-base font-medium text-slate-900">
                   Nuk ka ende histori te hyrjeve
                 </p>
               </div>
             ) : (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="mt-5 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left">
+                    <thead className="border-b border-slate-100 bg-slate-50 text-left">
                       <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                         <th className="px-4 py-3.5">Produkti</th>
                         <th className="px-4 py-3.5">Varianti</th>
@@ -318,7 +328,8 @@ export default async function IncomingStockPage({
                             </div>
                           </td>
                           <td className="px-4 py-4 text-slate-700">
-                            Nr {movement.variant.size} / {movement.variant.color}
+                            Nr {movement.variant.size} /{" "}
+                            {movement.variant.color}
                           </td>
                           <td className="px-4 py-4">
                             <span
@@ -328,7 +339,8 @@ export default async function IncomingStockPage({
                             </span>
                           </td>
                           <td className="px-4 py-4 text-right">
-                            <span className="font-semibold text-slate-900">
+                            <span className="font-semibold text-emerald-600">
+                              {" "}
                               +{movement.quantity}
                             </span>
                           </td>
