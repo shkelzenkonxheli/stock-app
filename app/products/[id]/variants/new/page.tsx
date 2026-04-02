@@ -155,19 +155,48 @@ async function createVariants(formData: FormData) {
       .filter((barcode): barcode is string => Boolean(barcode)),
   );
 
-  const uniqueRows = normalizedRows.filter((row, index, rows) => {
-    const currentKey = `${row.size}::${row.color.toLowerCase()}`;
-    const firstIndex = rows.findIndex(
-      (candidate) =>
-        `${candidate.size}::${candidate.color.toLowerCase()}` === currentKey,
+  const seenRowKeys = new Set<string>();
+  const duplicateRowsInRequest = new Set<string>();
+
+  for (const row of normalizedRows) {
+    const key = `${row.size}::${row.color.toLowerCase()}`;
+
+    if (seenRowKeys.has(key)) {
+      duplicateRowsInRequest.add(key);
+      continue;
+    }
+
+    seenRowKeys.add(key);
+  }
+
+  if (duplicateRowsInRequest.size > 0) {
+    const [firstDuplicate] = [...duplicateRowsInRequest];
+    const [size, color] = firstDuplicate.split("::");
+
+    redirect(
+      `/products/${productId}/variants/new?error=${encodeURIComponent(
+        `Varianti Nr ${size} / ${color} eshte shkruar me shume se nje here.`,
+      )}`,
     );
+  }
 
-    return firstIndex === index && !existingKeys.has(currentKey);
-  });
+  const alreadyExistingRows = normalizedRows.filter((row) =>
+    existingKeys.has(`${row.size}::${row.color.toLowerCase()}`),
+  );
 
-  if (uniqueRows.length > 0) {
+  if (alreadyExistingRows.length > 0) {
+    const firstExisting = alreadyExistingRows[0];
+
+    redirect(
+      `/products/${productId}/variants/new?error=${encodeURIComponent(
+        `Varianti Nr ${firstExisting.size} / ${firstExisting.color} ekziston tashme per kete produkt.`,
+      )}`,
+    );
+  }
+
+  if (normalizedRows.length > 0) {
     await prisma.$transaction(async (tx) => {
-      for (const row of uniqueRows) {
+      for (const row of normalizedRows) {
         const baseSku =
           row.sku ??
           buildVariantSku({
@@ -269,14 +298,19 @@ export default async function NewProductVariantPage({
             </Link>
           </div>
         </div>
-        <VariantRowsForm productId={product.id} action={createVariants} />
         {errorMessage ? (
           <FlashMessage
             type="error"
             text={errorMessage}
-            className="mt-4 rounded-2xl px-4 py-3 text-sm"
+            className="mt-6 rounded-2xl px-4 py-3 text-sm"
           />
         ) : null}
+        <VariantRowsForm
+          productId={product.id}
+          productName={product.name}
+          productBrand={product.brand}
+          action={createVariants}
+        />
       </div>
     </main>
   );
