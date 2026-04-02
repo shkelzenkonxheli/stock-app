@@ -61,15 +61,27 @@ const getColorDotClass = (color: string) => {
   if (normalized.includes("bardh") || normalized.includes("white")) {
     return "border border-slate-300 bg-white";
   }
-  if (normalized.includes("kuq") || normalized.includes("red")) return "bg-red-500";
-  if (normalized.includes("blu") || normalized.includes("blue")) return "bg-blue-500";
-  if (normalized.includes("gjelb") || normalized.includes("green")) return "bg-emerald-600";
-  if (normalized.includes("verdh") || normalized.includes("yellow")) return "bg-amber-400";
-  if (normalized.includes("roz") || normalized.includes("pink")) return "bg-rose-400";
-  if (normalized.includes("vjollc") || normalized.includes("purple")) return "bg-violet-500";
-  if (normalized.includes("portok") || normalized.includes("orange")) return "bg-orange-500";
-  if (normalized.includes("kafe") || normalized.includes("brown")) return "bg-amber-700";
-  if (normalized.includes("gri") || normalized.includes("gray") || normalized.includes("grey")) {
+  if (normalized.includes("kuq") || normalized.includes("red"))
+    return "bg-red-500";
+  if (normalized.includes("blu") || normalized.includes("blue"))
+    return "bg-blue-500";
+  if (normalized.includes("gjelb") || normalized.includes("green"))
+    return "bg-emerald-600";
+  if (normalized.includes("verdh") || normalized.includes("yellow"))
+    return "bg-amber-400";
+  if (normalized.includes("roz") || normalized.includes("pink"))
+    return "bg-rose-400";
+  if (normalized.includes("vjollc") || normalized.includes("purple"))
+    return "bg-violet-500";
+  if (normalized.includes("portok") || normalized.includes("orange"))
+    return "bg-orange-500";
+  if (normalized.includes("kafe") || normalized.includes("brown"))
+    return "bg-amber-700";
+  if (
+    normalized.includes("gri") ||
+    normalized.includes("gray") ||
+    normalized.includes("grey")
+  ) {
     return "bg-slate-400";
   }
 
@@ -151,7 +163,8 @@ export function VariantRowsForm({
     (sum, row) => sum + (Number(row.stock) || 0) * (Number(row.price) || 0),
     0,
   );
-  const isReadyToSave = validRows.length > 0 && validRows.length === rows.length;
+  const isReadyToSave =
+    validRows.length > 0 && validRows.length === rows.length;
 
   return (
     <form action={action} className="mt-8 space-y-6">
@@ -162,7 +175,9 @@ export function VariantRowsForm({
         <aside className="space-y-5">
           <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 border-l-4 border-blue-500 pl-4">
-              <p className="text-xl font-semibold text-slate-950">Imazhi i Grupit</p>
+              <p className="text-xl font-semibold text-slate-950">
+                Imazhi i Grupit
+              </p>
             </div>
 
             <ImageFileInput
@@ -174,7 +189,8 @@ export function VariantRowsForm({
             />
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Imazhi kryesor per kete grup variantesh. Perdor format JPG ose PNG.
+              Imazhi kryesor per kete grup variantesh. Perdor format JPG ose
+              PNG.
             </p>
           </section>
 
@@ -327,10 +343,20 @@ export function VariantRowsForm({
                 onClick={addRow}
                 className="inline-flex items-center gap-2 rounded-xl px-2 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               >
-                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                  <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className="h-4 w-4"
+                >
+                  <path
+                    d="M10 4.5v11M4.5 10h11"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
                 </svg>
-                Dubliko rreshtat
+                Dupliko rreshtat
               </button>
 
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -344,8 +370,19 @@ export function VariantRowsForm({
                   type="submit"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
                 >
-                  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                    <path d="M5.75 10.25 8.5 13l5.75-5.75" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className="h-4 w-4"
+                  >
+                    <path
+                      d="M5.75 10.25 8.5 13l5.75-5.75"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                   Ruaj variantet
                 </button>
