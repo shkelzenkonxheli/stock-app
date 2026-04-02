@@ -272,6 +272,27 @@ export default async function ProductDetailsPage({
         id: true,
         name: true,
         brand: true,
+        createdAt: true,
+        variants: {
+          select: {
+            stockMovements: {
+              select: {
+                id: true,
+                quantity: true,
+                reason: true,
+                createdAt: true,
+                variant: {
+                  select: {
+                    size: true,
+                    color: true,
+                  },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+              take: 4,
+            },
+          },
+        },
       },
     }),
     prisma.variant.findMany({
@@ -320,47 +341,47 @@ export default async function ProductDetailsPage({
   const colors = [...new Set(allVariants.map((variant) => variant.color))];
   const sizes = [...new Set(allVariants.map((variant) => variant.size))];
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
+  const latestMovements = product.variants
+    .flatMap((variant) => variant.stockMovements)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 4);
+  const weeklyIncoming = latestMovements
+    .filter((movement) => movement.reason === "INCOMING_STOCK")
+    .reduce((sum, movement) => sum + movement.quantity, 0);
+  const returnCount = latestMovements
+    .filter((movement) => movement.reason === "CUSTOMER_RETURN")
+    .reduce((sum, movement) => sum + movement.quantity, 0);
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] px-4 py-6 sm:px-6 lg:px-8">
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <div className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_20px_50px_rgba(15,23,42,0.07)]">
-          <div className="flex flex-col gap-6 px-5 py-6 sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-8">
+        <section className="space-y-5 rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Inventory / Produkte
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 {product.name}
               </h1>
               <p className="mt-2 text-base text-slate-600">{product.brand}</p>
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-                {allVariants.length} variante
-              </span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-                {totalStock} cope ne stok
-              </span>
-              {lowStockVariantsCount > 0 ? (
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-700">
-                  {lowStockVariantsCount} stok i ulet
-                </span>
-              ) : null}
-            </div>
 
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href="/products"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
+              >
+                Kthehu te produktet
+              </Link>
               {canManageInventory ? (
                 <Link
                   href={`/products/${product.id}/edit`}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
                 >
                   Edito produktin
                 </Link>
               ) : null}
-              <Link
-                href="/products"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Kthehu te produktet
-              </Link>
               {canManageInventory ? (
                 <Link
                   href={`/products/${product.id}/variants/new`}
@@ -371,9 +392,47 @@ export default async function ProductDetailsPage({
               ) : null}
             </div>
           </div>
-        </div>
 
-        <div className="px-3 py-3 sm:px-4 sm:py-4">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-[26px] border border-slate-200 bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                {allVariants.length} variante
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                Gjithsej Variante
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Konfigurime aktive ne katalog
+              </p>
+            </div>
+
+            <div className="rounded-[26px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                {totalStock} cope ne stok
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                Inventari Total
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Njesi te disponueshme per shitje
+              </p>
+            </div>
+
+            <div className="rounded-[26px] border border-rose-200 bg-white px-5 py-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-600">
+                {lowStockVariantsCount} stok i ulet
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-rose-600">
+                Rimbushje e Nevojshme
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Variante poshte pragut kritik
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[30px] border border-slate-200 bg-white px-3 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-4 sm:py-5">
           {allVariants.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-10 text-center">
               <p className="text-base font-medium text-slate-900">
@@ -453,8 +512,92 @@ export default async function ProductDetailsPage({
               ) : null}
             </div>
           )}
-        </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <article className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+            <div className="border-l-[3px] border-slate-950 pl-4">
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+                Pershkrimi i Produktit
+              </h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+                {product.name} nga {product.brand} eshte organizuar ne katalog
+                me variante te ndara sipas ngjyres dhe numrit, qe ta beje
+                menaxhimin e stokut me te qarte dhe me te shpejte. Aktualisht
+                ky produkt ka {allVariants.length} variante aktive dhe{" "}
+                {totalStock} njesi te disponueshme ne inventar.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Brendi
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  {product.brand}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Struktura
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  {sizes.length} numra / {colors.length} ngjyra
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <aside className="rounded-[28px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Trendi i Inventarit
+            </h2>
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-sm font-medium text-slate-600">
+                  Hyrje te fundit
+                </span>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                  +{weeklyIncoming}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-sm font-medium text-slate-600">
+                  Kthime
+                </span>
+                <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-600">
+                  {returnCount}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Aktiviteti i fundit
+              </p>
+              <ul className="mt-3 space-y-3 text-sm text-slate-600">
+                {latestMovements.length > 0 ? (
+                  latestMovements.map((movement) => (
+                    <li key={movement.id} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                      <span>
+                        {movement.reason === "CUSTOMER_RETURN"
+                          ? "Kthim klienti"
+                          : "Hyrje stoku"}{" "}
+                        ne {movement.variant.color} / {movement.variant.size} (
+                        {movement.quantity} cope)
+                      </span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-slate-500">Ende nuk ka levizje stoku.</li>
+                )}
+              </ul>
+            </div>
+          </aside>
+        </section>
       </div>
     </main>
   );
 }
+

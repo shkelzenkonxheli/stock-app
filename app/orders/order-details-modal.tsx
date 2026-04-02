@@ -44,9 +44,22 @@ export function OrderDetailsModal({
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+        aria-label={`Shiko porosine ${orderId}`}
       >
-        Shiko
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-4 w-4"
+        >
+          <path
+            d="M1.75 10C3.15 6.55 6.19 4.25 10 4.25S16.85 6.55 18.25 10C16.85 13.45 13.81 15.75 10 15.75S3.15 13.45 1.75 10Z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
       </button>
 
       <dialog

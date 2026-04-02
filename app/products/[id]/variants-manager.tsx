@@ -61,6 +61,133 @@ export function VariantsManager({
     setSelectedIds(allSelected ? [] : variants.map((variant) => variant.id));
   };
 
+  const getColorDotClassName = (color: string) => {
+    const normalizedColor = color.trim().toLowerCase();
+
+    if (
+      normalizedColor.includes("bardh") ||
+      normalizedColor.includes("white")
+    ) {
+      return "border border-slate-300 bg-white";
+    }
+
+    if (normalizedColor.includes("zi") || normalizedColor.includes("black")) {
+      return "bg-black";
+    }
+
+    if (
+      normalizedColor.includes("kuq") ||
+      normalizedColor.includes("red")
+    ) {
+      return "bg-red-500";
+    }
+
+    if (
+      normalizedColor.includes("gjelb") ||
+      normalizedColor.includes("green")
+    ) {
+      return "bg-emerald-500";
+    }
+
+    if (normalizedColor.includes("blu") || normalizedColor.includes("blue")) {
+      return "bg-blue-500";
+    }
+
+    if (
+      normalizedColor.includes("verdh") ||
+      normalizedColor.includes("yellow")
+    ) {
+      return "bg-amber-400";
+    }
+
+    if (
+      normalizedColor.includes("roz") ||
+      normalizedColor.includes("pink")
+    ) {
+      return "bg-pink-400";
+    }
+
+    if (
+      normalizedColor.includes("vjollc") ||
+      normalizedColor.includes("purple")
+    ) {
+      return "bg-violet-500";
+    }
+
+    if (
+      normalizedColor.includes("portokall") ||
+      normalizedColor.includes("orange")
+    ) {
+      return "bg-orange-500";
+    }
+
+    if (
+      normalizedColor.includes("kafe") ||
+      normalizedColor.includes("brown")
+    ) {
+      return "bg-amber-700";
+    }
+
+    if (normalizedColor.includes("gri") || normalizedColor.includes("gray")) {
+      return "bg-slate-400";
+    }
+
+    return "bg-slate-400";
+  };
+
+  const renderActionIcons = (variantId: number) => (
+    <div className="flex items-center justify-end gap-2">
+      <Link
+        href={`/products/${productId}/variants/${variantId}/edit`}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+        title="Edito variantin"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 20h4l10-10a2.121 2.121 0 0 0-3-3L5 17v3Z"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </Link>
+      <ConfirmActionForm
+        action={deleteVariantAction}
+        hiddenFields={[
+          { name: "variantId", value: variantId },
+          { name: "productId", value: productId },
+          { name: "size", value: selectedSize },
+          { name: "color", value: selectedColor },
+          { name: "stock", value: selectedStock },
+        ]}
+        confirmMessage="A je i sigurt qe don ta fshish kete variant?"
+        buttonLabel="Fshi"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-white text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+          aria-hidden="true"
+        >
+          <path
+            d="M3 6h18M8 6V4h8v2m-7 4v7m6-7v7M6 6l1 14h10l1-14"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </ConfirmActionForm>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {canManageInventory && selectedIds.length > 0 ? (
@@ -131,7 +258,12 @@ export function VariantsManager({
                   {variant.size}
                 </span>
                 <div>
-                  <p className="font-medium text-slate-900">{variant.color}</p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${getColorDotClassName(variant.color)}`}
+                    />
+                    <p className="font-medium text-slate-900">{variant.color}</p>
+                  </div>
                   <p className="mt-1 text-sm text-slate-500">
                     Variant #{variant.id}
                   </p>
@@ -204,22 +336,76 @@ export function VariantsManager({
         ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 lg:block">
+      <div className="hidden overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] lg:block">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+            Detajet e Varianteve
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              title="Filtro variantet"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 6h16M7 12h10M10 18h4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              title="Shkarko listen"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 4v10m0 0 4-4m-4 4-4-4M4 20h16"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left">
-              <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <thead className="border-b border-slate-100 bg-slate-50/80 text-left">
+              <tr className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 {canManageInventory ? (
-                  <th className="px-4 py-3.5 sm:px-5">Select</th>
+                  <th className="w-12 px-5 py-4">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
+                    />
+                  </th>
                 ) : null}
-                <th className="px-4 py-3.5 sm:px-5">Foto</th>
-                <th className="px-4 py-3.5 sm:px-5">Numri</th>
-                <th className="px-4 py-3.5 sm:px-5">Ngjyra</th>
-                <th className="px-4 py-3.5 sm:px-5">Kodi</th>
-                <th className="px-4 py-3.5 text-right sm:px-5">Stoku</th>
-                <th className="px-4 py-3.5 text-right sm:px-5">Cmimi</th>
+                <th className="px-5 py-4">Photo</th>
+                <th className="px-5 py-4">Numri</th>
+                <th className="px-5 py-4">Ngjyra</th>
+                <th className="px-5 py-4">Kodi</th>
+                <th className="px-5 py-4 text-center">Stoku</th>
+                <th className="px-5 py-4 text-right">Cmimi</th>
                 {canManageInventory ? (
-                  <th className="px-4 py-3.5 text-right sm:px-5">Veprime</th>
+                  <th className="px-5 py-4 text-right">Veprime</th>
                 ) : null}
               </tr>
             </thead>
@@ -233,7 +419,7 @@ export function VariantsManager({
                   className="transition hover:bg-slate-50/80"
                 >
                   {canManageInventory ? (
-                    <td className="px-4 py-4 sm:px-5">
+                    <td className="px-5 py-4">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(variant.id)}
@@ -242,8 +428,8 @@ export function VariantsManager({
                       />
                     </td>
                   ) : null}
-                  <td className="px-4 py-4 sm:px-5">
-                    <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  <td className="px-5 py-4">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                       {variant.imagePath ? (
                         <a
                           href={variant.imagePath}
@@ -261,67 +447,41 @@ export function VariantsManager({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-4 sm:px-5">
-                    <span className="inline-flex min-w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-900">
+                  <td className="px-5 py-4">
+                    <span className="font-semibold text-slate-900">
                       {variant.size}
                     </span>
                   </td>
-                  <td className="px-4 py-4 sm:px-5">
+                  <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${getColorDotClassName(variant.color)}`}
+                      />
                       <span className="font-medium text-slate-800">
                         {variant.color}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 sm:px-5">
-                    <div className="space-y-1">
-                      <p className="break-all font-medium text-slate-900">
-                        {variant.sku || "-"}
-                      </p>
-                      <p className="break-all text-slate-500">
-                        {variant.barcode || "Pa barcode"}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right sm:px-5">
-                    <span
-                      className={`inline-flex min-w-16 items-center justify-center rounded-xl px-3 py-2 font-semibold ${stockTone.badgeClassName}`}
-                    >
-                      {variant.stock}
-                    </span>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      {stockTone.label}
+                  <td className="px-5 py-4">
+                    <p className="break-all text-xs font-medium tracking-[0.08em] text-slate-500">
+                      {variant.sku || variant.barcode || "-"}
                     </p>
                   </td>
-                  <td className="px-4 py-4 text-right sm:px-5">
+                  <td className="px-5 py-4 text-center">
+                    <span
+                      className={`inline-flex min-w-16 items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] ${stockTone.badgeClassName}`}
+                    >
+                      {variant.stock} {stockTone.label}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-right">
                     <span className="font-semibold tabular-nums text-slate-900">
-                      {variant.price.toFixed(2)} EUR
+                      EUR {variant.price.toFixed(2)}
                     </span>
                   </td>
                   {canManageInventory ? (
-                    <td className="px-4 py-4 text-right sm:px-5">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          href={`/products/${productId}/variants/${variant.id}/edit`}
-                          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                        >
-                          Edito
-                        </Link>
-                        <ConfirmActionForm
-                          action={deleteVariantAction}
-                          hiddenFields={[
-                            { name: "variantId", value: variant.id },
-                            { name: "productId", value: productId },
-                            { name: "size", value: selectedSize },
-                            { name: "color", value: selectedColor },
-                            { name: "stock", value: selectedStock },
-                          ]}
-                          confirmMessage="A je i sigurt qe don ta fshish kete variant?"
-                          buttonLabel="Fshi"
-                          className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100"
-                        />
-                      </div>
+                    <td className="px-5 py-4 text-right">
+                      {renderActionIcons(variant.id)}
                     </td>
                   ) : null}
                 </tr>
@@ -329,6 +489,28 @@ export function VariantsManager({
               })}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-5 py-4">
+          <p className="text-sm text-slate-600">
+            Duke treguar <span className="font-semibold text-slate-950">1</span>{" "}
+            deri <span className="font-semibold text-slate-950">{variants.length}</span>{" "}
+            nga <span className="font-semibold text-slate-950">{variants.length}</span>{" "}
+            variante
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Para
+            </button>
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Pas
+            </button>
+          </div>
         </div>
       </div>
     </div>

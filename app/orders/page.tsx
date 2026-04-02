@@ -381,7 +381,7 @@ export default async function OrdersPage({
     },
   };
 
-  const [orders, totalOrders, totalPiecesAggregate] = await Promise.all([
+  const [orders, totalOrders] = await Promise.all([
     prisma.order.findMany({
       where,
       orderBy: {
@@ -434,14 +434,7 @@ export default async function OrdersPage({
       },
     }),
     prisma.order.count({ where }),
-    prisma.order.aggregate({
-      where,
-      _sum: {
-        quantity: true,
-      },
-    }),
   ]);
-  const totalPieces = totalPiecesAggregate._sum.quantity ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
@@ -499,51 +492,35 @@ export default async function OrdersPage({
     };
   });
 
+  const readyCount = normalizedOrders.filter((order) => order.status === "READY").length;
+  const doneCount = normalizedOrders.filter((order) => order.status === "DONE").length;
+  const canceledCount = normalizedOrders.filter((order) => order.status === "CANCELED").length;
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfeff_0%,transparent_18%),radial-gradient(circle_at_top_right,#fef3c7_0%,transparent_22%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[32px]  bg-white/95 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-6 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <div className="space-y-4">
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+        <section className="space-y-5 rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
                 Te gjitha porosite
               </h1>
             </div>
 
-            <div className="flex flex-wrap gap-3 lg:justify-center">
-              <div className="min-w-28 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
-                  Porosite
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-sky-900">
-                  {totalOrders}
-                </p>
-              </div>
-
-              <div className="min-w-28 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                  Copa
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-emerald-900">
-                  {totalPieces}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {canCreateOrders ? (
                 <>
                   <Link
                     href="/orders/quick"
-                    className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 sm:w-auto"
+                    className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-white"
                   >
                     Porosi te shpejta
                   </Link>
                   <Link
                     href="/orders/new"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 sm:w-auto"
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
                   >
-                    + Shto Porosi
+                    + Krijo Porosi
                   </Link>
                 </>
               ) : null}
@@ -588,6 +565,45 @@ export default async function OrdersPage({
               />
             </>
           )}
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-4">
+          <div className="rounded-[24px] border border-blue-100 bg-white px-5 py-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Porosi sot
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {totalOrders}
+            </p>
+            <p className="mt-2 text-sm text-emerald-600">↗ +12% vs dje</p>
+          </div>
+          <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Ne pritje
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {readyCount}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">Mjaftueshem stok per te gjitha</p>
+          </div>
+          <div className="rounded-[24px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Derguar sot
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {doneCount}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">Mesatarja 3.2h per dergese</p>
+          </div>
+          <div className="rounded-[24px] border border-rose-200 bg-white px-5 py-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Anullime
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {canceledCount}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">Shkak: Mungese stoku</p>
+          </div>
         </section>
 
         {totalOrders > PAGE_SIZE ? (

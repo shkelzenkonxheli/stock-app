@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { FlashMessage } from "@/app/components/flash-message";
@@ -193,39 +192,24 @@ export default async function NewOrderPage({
   });
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfccb_0%,transparent_20%),radial-gradient(circle_at_top_right,#dbeafe_0%,transparent_24%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
-      <section className="mx-auto w-full max-w-4xl rounded-[32px] border border-slate-200/80 bg-white/95 px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Order Entry
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-              Shto porosi
+            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+              Shto Porosi te Re
             </h1>
+            <p className="mt-3 text-base text-slate-600">
+              Plotesoni te dhenat per te regjistruar nje shitje te re ne sistem.
+            </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-            >
-              Home
-            </Link>
-            <Link
-              href="/orders"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-            >
-              Shiko porosite
-            </Link>
-          </div>
-        </div>
+        </section>
 
         {errorMessage ? (
           <FlashMessage
             type="error"
             text={errorMessage}
-            className="mt-6 rounded-2xl px-4 py-3 text-sm shadow-sm"
+            className="rounded-2xl px-4 py-3 text-sm shadow-sm"
           />
         ) : null}
 
@@ -236,7 +220,7 @@ export default async function NewOrderPage({
             label: `${product.name} | ${product.brand}`,
           }))}
         />
-      </section>
+      </div>
     </main>
   );
 }

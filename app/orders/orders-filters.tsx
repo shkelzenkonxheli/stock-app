@@ -115,35 +115,20 @@ export function OrdersFilters({
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_180px]">
-      <div className="space-y-1">
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Kerko klient, telefon, reference"
-          className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
-        />
-        <p className="text-xs text-slate-500">
-          {isPending
-            ? "Duke filtruar..."
-            : "Kerko automatikisht sapo te shkruash"}
-        </p>
-      </div>
-
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[180px_180px_180px_minmax(0,1fr)]">
       <input
         type="date"
         value={date}
         onChange={(event) => setDate(event.target.value)}
-        className="h-12 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
       />
 
       <select
         value={status}
         onChange={(event) => setStatus(event.target.value)}
-        className="w-45 h-12 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
       >
-        <option value="">Te gjitha statuset</option>
+        <option value="">Statusi: Te gjitha</option>
         <option value="NEW">NEW</option>
         <option value="READY">READY</option>
         <option value="DONE">DONE</option>
@@ -153,13 +138,37 @@ export function OrdersFilters({
       <select
         value={source}
         onChange={(event) => setSource(event.target.value)}
-        className="w-45 h-12 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
       >
-        <option value="">Te gjitha burimet</option>
+        <option value="">Filtra te tjere</option>
         <option value="INSTAGRAM">Instagram</option>
         <option value="STORE">Shitore</option>
         <option value="WHOLESALE">Shumice</option>
       </select>
+
+      <div className="space-y-1">
+        <div className="relative">
+          <svg
+            viewBox="0 0 24 24"
+            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400 stroke-[1.8]"
+          >
+            <circle cx="11" cy="11" r="6" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Kerko porosi..."
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+          />
+        </div>
+        <p className="text-xs text-slate-500">
+          {isPending
+            ? "Duke filtruar..."
+            : "Kerko automatikisht sapo te shkruash"}
+        </p>
+      </div>
     </div>
   );
 }

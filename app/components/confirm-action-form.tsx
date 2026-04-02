@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 type ConfirmActionFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   hiddenFields: Array<{
@@ -10,6 +12,7 @@ type ConfirmActionFormProps = {
   buttonLabel: string;
   className: string;
   disabled?: boolean;
+  children?: ReactNode;
 };
 
 export function ConfirmActionForm({
@@ -19,6 +22,7 @@ export function ConfirmActionForm({
   buttonLabel,
   className,
   disabled = false,
+  children,
 }: ConfirmActionFormProps) {
   return (
     <form action={action}>
@@ -45,7 +49,7 @@ export function ConfirmActionForm({
           }
         }}
       >
-        {buttonLabel}
+        {children ?? buttonLabel}
       </button>
     </form>
   );

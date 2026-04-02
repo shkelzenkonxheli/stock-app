@@ -33,7 +33,7 @@ export function ImageFileInput({
       <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-800">
         {label}
       </label>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="space-y-4">
         <input
           id={id}
           type="file"
@@ -58,11 +58,11 @@ export function ImageFileInput({
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2.5 file:font-medium file:text-white hover:file:bg-slate-800"
         />
         {previewUrl ? (
-          <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
             <UploadedImage
               src={previewUrl}
               alt="Preview"
-              className="h-full w-full object-cover"
+              className="h-64 w-full object-cover"
             />
           </div>
         ) : null}

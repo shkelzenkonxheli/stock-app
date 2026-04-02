@@ -105,13 +105,6 @@ export function IncomingStockForm({
     [quantities],
   );
 
-  const activeAdjustments = useMemo(
-    () =>
-      Object.values(quantities).filter((quantity) => Number(quantity) > 0)
-        .length,
-    [quantities],
-  );
-
   const colors = useMemo(
     () => [...new Set(variants.map((variant) => variant.color))].sort(),
     [variants],
@@ -125,94 +118,123 @@ export function IncomingStockForm({
     [selectedColor, variants],
   );
 
+  const getColorDotClassName = (color: string) => {
+    const normalizedColor = color.trim().toLowerCase();
+
+    if (
+      normalizedColor.includes("bardh") ||
+      normalizedColor.includes("white")
+    ) {
+      return "border border-slate-300 bg-white";
+    }
+    if (normalizedColor.includes("zi") || normalizedColor.includes("black")) {
+      return "bg-black";
+    }
+    if (normalizedColor.includes("kuq") || normalizedColor.includes("red")) {
+      return "bg-red-500";
+    }
+    if (
+      normalizedColor.includes("gjelb") ||
+      normalizedColor.includes("green")
+    ) {
+      return "bg-emerald-500";
+    }
+    if (normalizedColor.includes("blu") || normalizedColor.includes("blue")) {
+      return "bg-blue-500";
+    }
+    if (
+      normalizedColor.includes("verdh") ||
+      normalizedColor.includes("yellow")
+    ) {
+      return "bg-amber-400";
+    }
+
+    return "bg-slate-400";
+  };
+
   return (
-    <form action={action} className="mt-8 space-y-5">
+    <form action={action} className="mt-8 space-y-6">
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="adjustments" value={serializedAdjustments} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)_220px_200px_200px] lg:items-end">
-        <div className="space-y-2">
-          <label
-            htmlFor="reason"
-            className="block text-sm font-medium text-slate-800"
-          >
-            Arsyeja
+      <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Arsyeja
+            </span>
+            <select
+              id="reason"
+              name="reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+            >
+              <option value="INCOMING_STOCK">Hyrje stoku</option>
+              <option value="CUSTOMER_RETURN">Kthim klienti</option>
+            </select>
           </label>
-          <select
-            id="reason"
-            name="reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-          >
-            <option value="INCOMING_STOCK">Hyrje stoku</option>
-            <option value="CUSTOMER_RETURN">Kthim klienti</option>
-          </select>
-        </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="productId"
-            className="block text-sm font-medium text-slate-800"
-          >
-            Produkti
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Produkti
+            </span>
+            <select
+              id="productId"
+              value={productId}
+              onChange={(event) => setProductId(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+            >
+              <option value="">Zgjidh produktin</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.label}
+                </option>
+              ))}
+            </select>
           </label>
-          <select
-            id="productId"
-            value={productId}
-            onChange={(event) => setProductId(event.target.value)}
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-          >
-            <option value="">Zgjedh produktin</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.label}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="colorFilter"
-            className="block text-sm font-medium text-slate-800"
-          >
-            Ngjyra
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Ngjyra
+            </span>
+            <select
+              id="colorFilter"
+              value={selectedColor}
+              onChange={(event) => setSelectedColor(event.target.value)}
+              disabled={!productId || colors.length === 0}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Te gjitha ngjyrat</option>
+              {colors.map((color) => (
+                <option key={color} value={color}>
+                  {color}
+                </option>
+              ))}
+            </select>
           </label>
-          <select
-            id="colorFilter"
-            value={selectedColor}
-            onChange={(event) => setSelectedColor(event.target.value)}
-            disabled={!productId || colors.length === 0}
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">Te gjitha ngjyrat</option>
-            {colors.map((color) => (
-              <option key={color} value={color}>
-                {color}
-              </option>
-            ))}
-          </select>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Variante aktive
-          </p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-            {activeAdjustments}
-          </p>
-        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Variante aktive
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {visibleVariants.length}
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-            Pale qe shtohen
-          </p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-emerald-800">
-            {totalAdded}
-          </p>
+          <div className="rounded-2xl border border-emerald-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">
+              Pale qe shtohen
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-600">
+              +{totalAdded}
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-6 text-sm text-slate-600">
@@ -293,10 +315,10 @@ export function IncomingStockForm({
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-2xl border border-slate-200 lg:block">
+          <div className="hidden overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] lg:block">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-left">
+                <thead className="border-b border-slate-100 bg-slate-50 text-left">
                   <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     <th className="px-4 py-3.5">Foto</th>
                     <th className="px-4 py-3.5">Numri</th>
@@ -322,7 +344,14 @@ export function IncomingStockForm({
                       <td className="px-4 py-4 font-medium text-slate-900">
                         {variant.size}
                       </td>
-                      <td className="px-4 py-4 text-slate-700">{variant.color}</td>
+                      <td className="px-4 py-4 text-slate-700">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full ${getColorDotClassName(variant.color)}`}
+                          />
+                          <span>{variant.color}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-4 text-right">
                         <span className="font-semibold tabular-nums text-slate-900">
                           {variant.stock}
@@ -360,10 +389,10 @@ export function IncomingStockForm({
         </>
       ) : null}
 
-      <div className="flex flex-col gap-3 pt-3 sm:flex-row">
+      <div className="pt-1">
         <button
           type="submit"
-          className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(5,150,105,0.24)] transition hover:bg-emerald-500"
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
         >
           Ruaj hyrjen e stokut
         </button>

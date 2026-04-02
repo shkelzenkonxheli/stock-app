@@ -1,50 +1,58 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 
-type Tile = {
+type ActionTile = {
   title: string;
   subtitle: string;
   href?: string;
-  color: string;
-  icon: ReactNode;
+  accent: string;
+  pill: string;
+  icon: React.ReactNode;
   visible: boolean;
   disabled?: boolean;
 };
 
-function DashboardTile({ title, subtitle, href, color, icon, disabled }: Tile) {
+function ActionTile({
+  title,
+  subtitle,
+  href,
+  accent,
+  pill,
+  icon,
+  visible,
+  disabled,
+}: ActionTile) {
+  if (!visible) {
+    return null;
+  }
+
   const content = (
-    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 text-white ring-1 ring-white/20 backdrop-blur-sm sm:h-14 sm:w-14">
+    <div
+      className={`group relative overflow-hidden rounded-[28px] px-5 py-6 text-white shadow-[0_16px_40px_rgba(15,23,42,0.16)] ${accent} ${
+        disabled ? "opacity-80 saturate-75" : ""
+      }`}
+    >
+      <div className="mb-10 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
         {icon}
       </div>
-      <div>
-        <h2 className="text-[15px] font-semibold leading-tight tracking-tight text-white sm:text-base">
-          {title}
-        </h2>
-        <p className="mt-1 text-[11px] font-medium text-white/80 sm:text-xs">
-          {subtitle}
-        </p>
-      </div>
+      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+      <p className="mt-3 max-w-[240px] text-sm leading-6 text-white/80">
+        {subtitle}
+      </p>
+      <span className="mt-5 inline-flex rounded-full bg-black/20 px-3 py-1 text-xs font-medium text-white/85 ring-1 ring-white/10">
+        {pill}
+      </span>
     </div>
   );
 
-  const baseClassName = `aspect-square rounded-2xl p-3 shadow-[0_14px_28px_rgba(15,23,42,0.18)] sm:p-4 ${color}`;
-
   if (disabled || !href) {
-    return (
-      <div className={`${baseClassName} opacity-80 saturate-75`}>{content}</div>
-    );
+    return content;
   }
 
   return (
-    <Link
-      href={href}
-      className={`${baseClassName} cursor-pointer`}
-      style={{ WebkitTapHighlightColor: "transparent" }}
-    >
+    <Link href={href} className="block">
       {content}
     </Link>
   );
@@ -60,39 +68,93 @@ export default async function Home() {
     "WAREHOUSE",
   ]);
   const canManageUsers = hasRole(currentUser, ["SUPER_ADMIN"]);
-  const lowStockCount = await prisma.variant.count({
-    where: {
-      stock: {
-        gt: 0,
-        lte: LOW_STOCK_THRESHOLD,
-      },
-    },
-  });
 
-  const tiles: Tile[] = [
+  const today = new Date();
+  const dateFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dateTo = new Date(dateFrom);
+  dateTo.setDate(dateTo.getDate() + 1);
+
+  const [
+    totalProducts,
+    totalVariants,
+    totalStockValueData,
+    lowStockCount,
+    ordersToday,
+    recentMovements,
+  ] = await Promise.all([
+    prisma.product.count(),
+    prisma.variant.count(),
+    prisma.variant.findMany({
+      select: { stock: true, price: true },
+    }),
+    prisma.variant.count({
+      where: {
+        stock: {
+          gt: 0,
+          lte: LOW_STOCK_THRESHOLD,
+        },
+      },
+    }),
+    prisma.order.count({
+      where: {
+        createdAt: {
+          gte: dateFrom,
+          lt: dateTo,
+        },
+      },
+    }),
+    prisma.stockMovement.findMany({
+      take: 4,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        quantity: true,
+        reason: true,
+        createdAt: true,
+        variant: {
+          select: {
+            sku: true,
+            size: true,
+            color: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const totalStockValue = totalStockValueData.reduce(
+    (sum, variant) => sum + Number(variant.price) * variant.stock,
+    0,
+  );
+
+  const tiles: ActionTile[] = [
     {
       title: "Produktet",
-      subtitle:
-        lowStockCount > 0
-          ? `${lowStockCount} variante me stok te ulet`
-          : "Inventari",
+      subtitle: "Shikoni dhe menaxhoni te gjithe listen e produkteve tuaja.",
       href: "/products",
-      color: "bg-sky-500",
+      accent: "bg-[linear-gradient(135deg,#1d4ed8_0%,#2563eb_100%)]",
+      pill: `${totalProducts.toLocaleString("sq-AL")} artikuj gjithsej`,
       visible: true,
       icon: (
         <svg
           viewBox="0 0 24 24"
           className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
         >
-          <path d="M4 7h16M4 12h16M4 17h16" />
+          <path d="M7 4h10v4H7zM6 10h12v10H6z" />
         </svg>
       ),
     },
     {
       title: "Shto Produkt",
-      subtitle: "Model i ri",
+      subtitle: "Regjistroni produkte te reja ne sistem me te gjitha specifikat.",
       href: "/products/new",
-      color: "bg-emerald-500",
+      accent: "bg-[linear-gradient(135deg,#16a34a_0%,#22c55e_100%)]",
+      pill: "Kategorizimi automatik",
       visible: canManageInventory,
       icon: (
         <svg
@@ -105,9 +167,13 @@ export default async function Home() {
     },
     {
       title: "Porosite",
-      subtitle: "Lista e shitjeve",
+      subtitle: "Ndiqni statusin e te gjitha porosive aktive dhe te perfunduara.",
       href: "/orders",
-      color: "bg-orange-500",
+      accent: "bg-[linear-gradient(135deg,#f59e0b_0%,#fb923c_100%)]",
+      pill:
+        ordersToday > 0
+          ? `${ordersToday} porosi sot`
+          : "Nuk ka porosi sot",
       visible: canManageOrders,
       icon: (
         <svg
@@ -120,9 +186,10 @@ export default async function Home() {
     },
     {
       title: "Shto Porosi",
-      subtitle: "Regjistro shitje",
+      subtitle: "Krijoni shitje te reja dhe porosi per klientet tuaj.",
       href: "/orders/new",
-      color: "bg-rose-500",
+      accent: "bg-[linear-gradient(135deg,#db2777_0%,#f43f5e_100%)]",
+      pill: "Sinkronizim ne kohe reale",
       visible: canCreateOrders,
       icon: (
         <svg
@@ -135,9 +202,13 @@ export default async function Home() {
     },
     {
       title: "Hyrje Stoku",
-      subtitle: "Shto stok me shpejt",
+      subtitle: "Shtoni mallin e ri qe mberrin ne magazine nga furnitoret.",
       href: "/stock/incoming",
-      color: "bg-violet-500",
+      accent: "bg-[linear-gradient(135deg,#7c3aed_0%,#9333ea_100%)]",
+      pill:
+        lowStockCount > 0
+          ? `${lowStockCount} variante me stok te ulet`
+          : "Inventari ne gjendje te mire",
       visible: canManageInventory,
       icon: (
         <svg
@@ -149,55 +220,162 @@ export default async function Home() {
       ),
     },
     {
-      title: "Dalje Stoku",
-      subtitle: "Coming Soon",
-      color: "bg-red-500",
-      visible: canManageOrders,
-      disabled: true,
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
-        >
-          <path d="m12 5 6 6M12 5 6 11M12 19V5" />
-        </svg>
-      ),
-    },
-    {
       title: "Menaxho Userat",
-      subtitle: "Qasja dhe rolet",
+      subtitle: "Kontrolloni qasjen dhe rolet per secilin perdorues te sistemit.",
       href: "/users",
-      color: "bg-indigo-500",
+      accent: "bg-[linear-gradient(135deg,#ef4444_0%,#f43f5e_100%)]",
+      pill: "Administrim i ekipit",
       visible: canManageUsers,
       icon: (
         <svg
           viewBox="0 0 24 24"
           className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
         >
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c0 .67.39 1.28 1 1.51H21a2 2 0 0 1 0 4h-.09c-.61.23-1 .84-1 1.49Z" />
+          <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+          <circle cx="9.5" cy="7" r="3.5" />
+          <path d="M20 8v6M23 11h-6" />
         </svg>
       ),
     },
   ];
 
-  const visibleTiles = tiles.filter((tile) => tile.visible);
-
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,transparent_26%),radial-gradient(circle_at_bottom_right,#fde68a_0%,transparent_24%),linear-gradient(180deg,#f8fafc_0%,#e2e8f0_100%)] px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <section className="w-full rounded-[28px] border border-white/80 bg-white/72 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur sm:rounded-[32px] sm:p-5">
-          <div className="mb-4 text-center sm:mb-5">
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              Menaxhimi i Stokut
-            </h1>
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-7">
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+          <div className="relative overflow-hidden rounded-[32px] bg-[#0b0b0b] px-7 py-8 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+            <div className="absolute right-6 top-6 h-28 w-28 rounded-full border border-white/10 bg-white/5" />
+            <div className="absolute bottom-6 right-12 h-16 w-16 rounded-2xl border border-white/10 bg-white/5" />
+            <div className="relative max-w-xl">
+              <p className="text-sm font-medium text-white/60">
+                Miresësevini perseri!
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+                Menaxhimi i Stokut
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-white/72">
+                Inventari juaj eshte i perditesuar. Keni {ordersToday} porosi te
+                reja dhe {lowStockCount} variante qe duan vemendje.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/orders"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                >
+                  Shiko Porosite
+                </Link>
+                {canManageInventory ? (
+                  <Link
+                    href="/orders/new"
+                    className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/15"
+                  >
+                    Shto te re
+                  </Link>
+                ) : null}
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-            {visibleTiles.map((tile) => (
-              <DashboardTile key={tile.title} {...tile} />
+          <div className="rounded-[32px] border border-blue-100 bg-white px-6 py-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+            <p className="text-sm font-medium text-slate-500">Vlera Totale e Stokut</p>
+            <p className="mt-4 text-5xl font-semibold tracking-tight text-slate-950">
+              €{totalStockValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="mt-4 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+              + {totalVariants.toLocaleString("sq-AL")} variante aktive
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Veprimet Kryesore
+            </h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Klikoni per te naviguar
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {tiles.map((tile) => (
+              <ActionTile key={tile.title} {...tile} />
             ))}
           </div>
+        </section>
+
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+                Levizjet e Fundit
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Hyrjet e fundit te stokut ne sistem
+              </p>
+            </div>
+          </div>
+
+          {recentMovements.length === 0 ? (
+            <div className="px-6 py-14 text-center text-sm text-slate-500">
+              Nuk ka ende levizje stoku te regjistruara.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50/80 text-left">
+                  <tr className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <th className="px-6 py-4">ID / Produkti</th>
+                    <th className="px-6 py-4">Kategoria</th>
+                    <th className="px-6 py-4 text-right">Sasia</th>
+                    <th className="px-6 py-4">Data</th>
+                    <th className="px-6 py-4">Statusi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {recentMovements.map((movement) => (
+                    <tr key={movement.id} className="hover:bg-slate-50/60">
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-slate-900">
+                          {movement.variant.product.name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          SKU {movement.variant.sku || "-"} • Nr {movement.variant.size} • {movement.variant.color}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {movement.reason === "CUSTOMER_RETURN"
+                          ? "Kthim klienti"
+                          : "Hyrje stoku"}
+                      </td>
+                      <td className="px-6 py-4 text-right font-semibold text-emerald-600">
+                        +{movement.quantity}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {new Intl.DateTimeFormat("sq-AL", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        }).format(movement.createdAt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            movement.reason === "CUSTOMER_RETURN"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {movement.reason === "CUSTOMER_RETURN"
+                            ? "PERFUNDUAR"
+                            : "NE PROCES"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
     </main>

@@ -84,6 +84,152 @@ export function OrdersManager({
     setSelectedIds(allSelected ? [] : deletableOrderIds);
   };
 
+  const getCustomerInitials = (customerName: string) =>
+    customerName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("");
+
+  const getAvatarTone = (orderId: number) => {
+    const tones = [
+      "bg-violet-100 text-violet-700",
+      "bg-sky-100 text-sky-700",
+      "bg-emerald-100 text-emerald-700",
+      "bg-rose-100 text-rose-700",
+      "bg-amber-100 text-amber-700",
+    ];
+
+    return tones[orderId % tones.length];
+  };
+
+  const getSourceIcon = (source: OrderSourceValue) => {
+    switch (source) {
+      case "INSTAGRAM":
+        return (
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+            <rect x="4.25" y="4.25" width="11.5" height="11.5" rx="3" stroke="currentColor" strokeWidth="1.5" />
+            <circle cx="10" cy="10" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+            <circle cx="14" cy="6" r="0.9" fill="currentColor" />
+          </svg>
+        );
+      case "STORE":
+        return (
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+            <path d="M4 7.25 5.25 4.5h9.5L16 7.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M4.25 7.25h11.5v7.5H4.25z" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M8 10.25h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        );
+      default:
+        return (
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+            <path d="M10 3.25 16 6.5v7L10 16.75 4 13.5v-7l6-3.25Z" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10 3.5v13" stroke="currentColor" strokeWidth="1.5" />
+            <path d="m4.25 6.75 5.75 3.25 5.75-3.25" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        );
+    }
+  };
+
+  const renderDesktopActions = (order: OrderSummary) => (
+    <div className="flex items-center justify-end gap-2">
+      <OrderDetailsModal
+        orderId={order.id}
+        customerName={order.customerName}
+        phone={order.phone}
+        sourceLabel={sourceLabels[order.source]}
+        createdAtDateLabel={order.createdAtDateLabel}
+        createdAtTimeLabel={order.createdAtTimeLabel}
+        reference={order.instagram}
+        notes={order.notes}
+        items={order.items}
+      />
+
+      {canManageStatuses && order.status === "NEW" ? (
+        <>
+          <form action={updateOrderStatusAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+            <input type="hidden" name="nextStatus" value="READY" />
+            <button
+              type="submit"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+              aria-label={`Kalo porosine ${order.id} ne READY`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                <path d="m4.5 10 3.25 3.25L15.5 5.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </form>
+          <ConfirmActionForm
+            action={updateOrderStatusAction}
+            hiddenFields={[
+              { name: "orderId", value: order.id },
+              { name: "nextStatus", value: "CANCELED" },
+            ]}
+            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
+            buttonLabel="Cancel"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <path d="M6 6 14 14M14 6l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </ConfirmActionForm>
+        </>
+      ) : null}
+
+      {canManageStatuses && order.status === "READY" ? (
+        <>
+          <form action={updateOrderStatusAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+            <input type="hidden" name="nextStatus" value="DONE" />
+            <button
+              type="submit"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+              aria-label={`Mbyll porosine ${order.id}`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                <path d="m4.5 10 3.25 3.25L15.5 5.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </form>
+          <ConfirmActionForm
+            action={updateOrderStatusAction}
+            hiddenFields={[
+              { name: "orderId", value: order.id },
+              { name: "nextStatus", value: "CANCELED" },
+            ]}
+            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
+            buttonLabel="Cancel"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <path d="M6 6 14 14M14 6l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </ConfirmActionForm>
+        </>
+      ) : null}
+
+      {canDeleteOrders ? (
+        <ConfirmActionForm
+          action={deleteOrderAction}
+          hiddenFields={[{ name: "orderId", value: order.id }]}
+          confirmMessage="A je i sigurt qe don ta fshish kete porosi? Ky veprim nuk kthehet mbrapa."
+          buttonLabel="Fshi"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+            <path d="M5.75 6.5h8.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            <path d="M8 6.5V5.25A1.25 1.25 0 0 1 9.25 4h1.5A1.25 1.25 0 0 1 12 5.25V6.5" stroke="currentColor" strokeWidth="1.7" />
+            <path d="M7 8.25v5.25M10 8.25v5.25M13 8.25v5.25" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            <path d="M6.5 6.5 7 15a1 1 0 0 0 1 .94h4a1 1 0 0 0 1-.94l.5-8.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </ConfirmActionForm>
+      ) : null}
+    </div>
+  );
+
   const renderActions = (order: OrderSummary) => (
     <div className="flex flex-wrap justify-end gap-2">
       <OrderDetailsModal
@@ -272,17 +418,17 @@ export function OrdersManager({
       <div className="hidden overflow-x-auto xl:block">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50/90 text-left">
-            <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <tr className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               {canDeleteOrders ? (
                 <th className="px-5 py-4 text-center">Select</th>
               ) : null}
               <th className="px-5 py-4">Klienti</th>
-              <th className="px-5 py-4 text-center">Artikuj</th>
+              <th className="px-5 py-4">Artikuj</th>
               <th className="px-5 py-4 text-center">Cope</th>
-              <th className="px-5 py-4 text-center">Burimi</th>
+              <th className="px-5 py-4">Burimi</th>
               <th className="px-5 py-4">Referenca</th>
-              <th className="px-5 py-4 text-center">Statusi</th>
-              <th className="px-5 py-4 text-right">Data</th>
+              <th className="px-5 py-4">Statusi</th>
+              <th className="px-5 py-4">Data</th>
               <th className="px-5 py-4 text-right">Veprime</th>
             </tr>
           </thead>
@@ -290,7 +436,7 @@ export function OrdersManager({
             {orders.map((order) => (
               <tr
                 key={order.id}
-                className="align-top transition hover:bg-cyan-50/30"
+                className="align-top transition hover:bg-slate-50/75"
               >
                 {canDeleteOrders ? (
                   <td className="px-5 py-4 text-center">
@@ -305,49 +451,68 @@ export function OrdersManager({
                   </td>
                 ) : null}
                 <td className="px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getAvatarTone(order.id)}`}
+                    >
+                      {getCustomerInitials(order.customerName)}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-slate-950">
+                        {order.customerName}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {order.phone}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-4">
                   <div>
                     <p className="font-semibold text-slate-950">
-                      {order.customerName}
+                      {order.items[0]?.name || "-"}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">{order.phone}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {order.itemsCount} {order.itemsCount === 1 ? "artikull" : "artikuj"}
+                    </p>
                   </div>
                 </td>
                 <td className="px-5 py-4 text-center">
-                  <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
-                    {order.itemsCount}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-center">
-                  <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
+                  <span className="inline-flex min-w-8 items-center justify-center rounded-xl bg-slate-100 px-2.5 py-1.5 font-semibold text-slate-700">
                     {order.totalQuantity}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-center">
-                  <span
-                    className={`inline-flex rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${sourceStyles[order.source]}`}
-                  >
-                    {sourceLabels[order.source]}
-                  </span>
+                <td className="px-5 py-4">
+                  <div className="inline-flex items-center gap-2 text-slate-700">
+                    <span className="text-slate-400">{getSourceIcon(order.source)}</span>
+                    <span className="text-sm font-medium">{sourceLabels[order.source]}</span>
+                  </div>
                 </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {order.instagram || "-"}
+                <td className="px-5 py-4 text-slate-500">
+                  {order.instagram ? (
+                    <span className="text-sm font-medium text-slate-500">#{order.instagram}</span>
+                  ) : (
+                    "-"
+                  )}
                 </td>
-                <td className="px-5 py-4 text-center">
+                <td className="px-5 py-4">
                   <span
-                    className={`inline-flex rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${statusStyles[order.status]}`}
+                    className={`inline-flex rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${statusStyles[order.status]}`}
                   >
                     {order.status}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-right text-slate-600">
+                <td className="px-5 py-4 text-slate-600">
                   <div>
-                    <p>{order.createdAtDateLabel}</p>
+                    <p className="font-medium text-slate-800">{order.createdAtDateLabel}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {order.createdAtTimeLabel}
                     </p>
                   </div>
                 </td>
-                <td className="px-5 py-4">{renderActions(order)}</td>
+                <td className="px-5 py-4">
+                  {renderDesktopActions(order)}
+                </td>
               </tr>
             ))}
           </tbody>

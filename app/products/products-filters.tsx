@@ -54,14 +54,23 @@ export function ProductsFilters({ searchQuery }: ProductsFiltersProps) {
   }, [query, searchQuery, updateFilters]);
 
   return (
-    <div className="space-y-1">
-      <input
-        type="text"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Kerko sipas modelit ose brendit"
-        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
-      />
+    <div className="space-y-2">
+      <div className="relative">
+        <svg
+          viewBox="0 0 24 24"
+          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400 stroke-[1.8]"
+        >
+          <circle cx="11" cy="11" r="6" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filtro sipas modelit ose brendit..."
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+        />
+      </div>
       <p className="text-xs text-slate-500">
         {isPending ? "Duke filtruar..." : "Kerko automatikisht sapo te shkruash"}
       </p>

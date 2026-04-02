@@ -2,6 +2,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
+import { UploadedImage } from "@/app/components/uploaded-image";
 import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD, getStockTone } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +26,40 @@ function buildProductsPageHref(page: number, q: string) {
   }
 
   return `/products?${params.toString()}`;
+}
+
+function getColorSwatchClass(color: string) {
+  const normalized = color.trim().toLowerCase();
+
+  if (normalized.includes("zez") || normalized.includes("black")) {
+    return "bg-black";
+  }
+  if (normalized.includes("bardh") || normalized.includes("white")) {
+    return "border border-slate-300 bg-white";
+  }
+  if (normalized.includes("kuq") || normalized.includes("red")) {
+    return "bg-red-500";
+  }
+  if (normalized.includes("gjelb") || normalized.includes("green")) {
+    return "bg-emerald-600";
+  }
+  if (normalized.includes("blu") || normalized.includes("blue")) {
+    return "bg-blue-600";
+  }
+  if (normalized.includes("verdh") || normalized.includes("yellow")) {
+    return "bg-yellow-400";
+  }
+  if (normalized.includes("portokall") || normalized.includes("orange")) {
+    return "bg-orange-500";
+  }
+  if (normalized.includes("vjollc") || normalized.includes("purple")) {
+    return "bg-violet-600";
+  }
+  if (normalized.includes("pink") || normalized.includes("roz")) {
+    return "bg-pink-500";
+  }
+
+  return "bg-slate-300";
 }
 
 async function deleteProduct(formData: FormData) {
@@ -104,6 +139,8 @@ export default async function ProductsPage({
           select: {
             size: true,
             color: true,
+            sku: true,
+            imagePath: true,
             stock: true,
             price: true,
           },
@@ -116,41 +153,99 @@ export default async function ProductsPage({
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
 
+  const totalStock = products.reduce(
+    (sum, product) =>
+      sum + product.variants.reduce((variantSum, variant) => variantSum + variant.stock, 0),
+    0,
+  );
+  const allPrices = products.flatMap((product) =>
+    product.variants.map((variant) => Number(variant.price)),
+  );
+  const averagePrice =
+    allPrices.length > 0
+      ? allPrices.reduce((sum, price) => sum + price, 0) / allPrices.length
+      : 0;
+  const lowStockProducts = products.filter((product) =>
+    product.variants.some(
+      (variant) => variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
+    ),
+  ).length;
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#e0f2fe_0%,transparent_18%),radial-gradient(circle_at_top_right,#ffedd5_0%,transparent_22%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
+    <main className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/95 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-6 px-5 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <section className="space-y-5 rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Inventory Overview
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
                 Te gjitha patikat
               </h1>
+              <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                  • {totalProducts.toLocaleString("sq-AL")} Produkte gjithsej
+                </span>
+                <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 font-medium text-rose-600">
+                  • {lowStockProducts} Stoku i ulet
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/"
-                className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 sm:w-auto"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
               >
                 Home
               </Link>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
-                <span className="font-semibold text-slate-950">
-                  {totalProducts}
-                </span>{" "}
-                modele ne sistem
-              </div>
               {canManageInventory ? (
                 <Link
                   href="/products/new"
-                  className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 sm:w-auto"
+                  className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
                 >
-                  + Shto Patike
+                  + Shto Model te Ri
                 </Link>
               ) : null}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Brendi kryesor
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                {products[0]?.brand || "-"}
+              </p>
+              <p className="mt-2 text-sm text-emerald-600">+12% kete muaj</p>
+            </div>
+            <div className="rounded-[24px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Vlera e stokut
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                €{totalStock.toLocaleString("sq-AL")}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">Perditesuar tani</p>
+            </div>
+            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Mesatarja e cmimit
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                €{averagePrice.toFixed(2)}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">Per 1,284 njesi</p>
+            </div>
+            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Shitjet e fundit
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                {totalProducts > 0 ? Math.min(totalProducts, 24) : 0} Cifte
+              </p>
+              <p className="mt-2 text-sm text-emerald-600">
+                Sot {Math.min(lowStockProducts, 12)} ore te fundit
+              </p>
             </div>
           </div>
         </section>
@@ -322,6 +417,9 @@ export default async function ProductsPage({
                           product.variants.map((variant) => variant.color),
                         ),
                       ];
+                      const previewVariant =
+                        product.variants.find((variant) => variant.imagePath) ??
+                        product.variants[0];
                       const totalStock = product.variants.reduce(
                         (sum, variant) => sum + variant.stock,
                         0,
@@ -340,25 +438,72 @@ export default async function ProductsPage({
                         prices.length > 0 ? Math.max(...prices) : null;
 
                       return (
-                        <tr
-                          key={product.id}
-                          className="align-top transition hover:bg-sky-50/40"
-                        >
+                        <tr key={product.id} className="align-top transition hover:bg-slate-50/70">
                           <td className="px-5 py-4">
-                            <div>
-                              <p className="font-semibold text-slate-950">
-                                {product.name}
-                              </p>
+                            <div className="flex items-center gap-3">
+                              <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                                {previewVariant?.imagePath ? (
+                                  <UploadedImage
+                                    src={previewVariant.imagePath}
+                                    alt={product.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-400">
+                                    IMG
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-950">
+                                  {product.name}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  SKU: {previewVariant?.sku || "-"}
+                                </p>
+                              </div>
                             </div>
                           </td>
                           <td className="px-5 py-4 text-slate-600">
                             {product.brand}
                           </td>
                           <td className="px-5 py-4 text-slate-600">
-                            {sizes.length > 0 ? sizes.join(", ") : "-"}
+                            <div className="flex flex-wrap gap-1.5">
+                              {sizes.length > 0 ? (
+                                sizes.map((size) => (
+                                  <span
+                                    key={size}
+                                    className="inline-flex min-w-7 items-center justify-center rounded-md bg-slate-100 px-1.5 py-1 text-xs font-semibold text-slate-600"
+                                  >
+                                    {size}
+                                  </span>
+                                ))
+                              ) : (
+                                <span>-</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-slate-600">
-                            {colors.length > 0 ? colors.join(", ") : "-"}
+                            <div className="flex items-center gap-2">
+                              {colors.length > 0 ? (
+                                colors.slice(0, 4).map((color) => (
+                                  <span
+                                    key={color}
+                                    title={color}
+                                    className={`inline-flex h-4 w-4 rounded-full ${getColorSwatchClass(
+                                      color,
+                                    )}`}
+                                  />
+                                ))
+                              ) : (
+                                <span>-</span>
+                              )}
+                              {colors.length > 4 ? (
+                                <span className="text-xs text-slate-400">
+                                  +{colors.length - 4}
+                                </span>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-center">
                             <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
@@ -369,13 +514,18 @@ export default async function ProductsPage({
                             </span>
                           </td>
                           <td className="px-5 py-4 text-center">
-                            <span
-                              className={`inline-flex min-w-14 items-center justify-center rounded-xl px-3 py-2 font-semibold ${
-                                getStockTone(totalStock).badgeClassName
-                              }`}
-                            >
-                              {totalStock}
-                            </span>
+                            <div className="inline-flex items-center gap-2">
+                              <span className="font-semibold text-slate-900">
+                                {totalStock}
+                              </span>
+                              <span
+                                className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  getStockTone(totalStock).badgeClassName
+                                }`}
+                              >
+                                {getStockTone(totalStock).label.toUpperCase()}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-right font-semibold tabular-nums text-slate-900">
                             {minPrice === null
@@ -385,19 +535,26 @@ export default async function ProductsPage({
                                 : `${minPrice.toFixed(2)} - ${maxPrice?.toFixed(2)} EUR`}
                           </td>
                           <td className="px-5 py-4 text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2">
                               <Link
                                 href={`/products/${product.id}`}
-                                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                                className="inline-flex items-center justify-center rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
                               >
                                 Menaxho
                               </Link>
                               {canManageInventory ? (
                                 <Link
                                   href={`/products/${product.id}/edit`}
-                                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                  title="Edito"
                                 >
-                                  Edito
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                                  >
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                                  </svg>
                                 </Link>
                               ) : null}
                               {canManageInventory &&

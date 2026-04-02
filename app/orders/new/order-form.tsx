@@ -36,7 +36,7 @@ type OrderItemRow = {
 
 const sourceOptions: Array<{ value: OrderSource; label: string }> = [
   { value: "INSTAGRAM", label: "Instagram" },
-  { value: "STORE", label: "Shitore" },
+  { value: "STORE", label: "Dyqan" },
   { value: "WHOLESALE", label: "Shumice" },
 ];
 
@@ -49,25 +49,47 @@ function createEmptyRow(): OrderItemRow {
   };
 }
 
+function getSourceIcon(source: OrderSource) {
+  switch (source) {
+    case "INSTAGRAM":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+          <rect x="4.25" y="4.25" width="11.5" height="11.5" rx="3" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="10" cy="10" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="14" cy="6" r="0.9" fill="currentColor" />
+        </svg>
+      );
+    case "STORE":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+          <path d="M4 7.25 5.25 4.5h9.5L16 7.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M4.25 7.25h11.5v7.5H4.25z" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 10.25h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      );
+    default:
+      return (
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+          <path d="M10 3.25 16 6.5v7L10 16.75 4 13.5v-7l6-3.25Z" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M10 3.5v13" stroke="currentColor" strokeWidth="1.5" />
+          <path d="m4.25 6.75 5.75 3.25 5.75-3.25" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+      );
+  }
+}
+
 export function OrderForm({ action, products }: OrderFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
   const [rows, setRows] = useState<OrderItemRow[]>([createEmptyRow()]);
-  const [variantsByProduct, setVariantsByProduct] = useState<
-    Record<number, OrderVariant[]>
-  >({});
-  const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>(
-    {},
-  );
+  const [variantsByProduct, setVariantsByProduct] = useState<Record<number, OrderVariant[]>>({});
+  const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const productIdsToLoad = [
       ...new Set(
         rows
           .map((row) => Number(row.productId))
-          .filter(
-            (productId) =>
-              productId > 0 && !variantsByProduct[productId],
-          ),
+          .filter((productId) => productId > 0 && !variantsByProduct[productId]),
       ),
     ];
 
@@ -189,7 +211,14 @@ export function OrderForm({ action, products }: OrderFormProps) {
       };
     })
     .filter((item): item is OrderVariant & { quantity: number } => item !== null);
-  const totalPairs = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const subtotal = selectedItems.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0,
+  );
+  const shipping = 0;
+  const grandTotal = subtotal + shipping;
+  const allInStock = selectedItems.every((item) => item.stock >= item.quantity);
 
   const serializedItems = JSON.stringify(
     rows
@@ -201,322 +230,378 @@ export function OrderForm({ action, products }: OrderFormProps) {
   );
 
   return (
-    <form action={action} className="mt-8 space-y-5">
+    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_312px]">
       <input type="hidden" name="source" value={source} />
       <input type="hidden" name="items" value={serializedItems} />
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-slate-800">Prej nga erdhi porosia</p>
-        <div className="grid grid-cols-3 gap-2 sm:w-auto">
-          {sourceOptions.map((option) => {
-            const active = source === option.value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setSource(option.value)}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
-                  active
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.05)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-semibold text-slate-950">Artikujt e porosise</p>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-              {selectedItems.length} artikuj
-            </span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-              {totalPairs} pale
-            </span>
+      <div className="space-y-6">
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                <path d="M10 3.5 16 6.75l-6 3.25-6-3.25L10 3.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M4 10.25 10 13.5l6-3.25M4 13.25 10 16.5l6-3.25" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <p className="text-xl font-semibold text-slate-950">Burimi i Porosise</p>
           </div>
-          <button
-            type="button"
-            onClick={addRow}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            + Shto artikull
-          </button>
-        </div>
 
-        <div className="space-y-4">
-          {rows.map((row, index) => {
-            const rowVariantId = Number(row.variantId);
-            const rowQuantity = Number(row.quantity) || 0;
-            const selectedProductId = Number(row.productId);
-            const productVariants = selectedProductId
-              ? variantsByProduct[selectedProductId] ?? []
-              : [];
-            const filteredVariants = productVariants
-              .map((variant) => {
-                const reservedElsewhere =
-                  (reservedByVariant.get(variant.id) ?? 0) -
-                  (variant.id === rowVariantId ? rowQuantity : 0);
+          <div className="grid gap-3 sm:grid-cols-3">
+            {sourceOptions.map((option) => {
+              const active = source === option.value;
 
-                return {
-                  ...variant,
-                  availableStock: Math.max(variant.stock - reservedElsewhere, 0),
-                };
-              })
-              .filter(
-                (variant) =>
-                  variant.availableStock > 0 || variant.id === rowVariantId,
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSource(option.value)}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold transition ${
+                    active
+                      ? "border-slate-900 bg-slate-950 text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)]"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {getSourceIcon(option.value)}
+                  {option.label}
+                </button>
               );
-            const selectedVariant = filteredVariants.find(
-              (variant) => variant.id === Number(row.variantId),
-            );
-            const isLoadingVariants = selectedProductId
-              ? Boolean(loadingProducts[selectedProductId])
-              : false;
-
-            return (
-              <div
-                key={row.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4"
-              >
-                <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                  <p className="text-sm font-semibold text-slate-900">Artikulli {index + 1}</p>
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.id)}
-                    disabled={rows.length === 1}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Hiq
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_1.2fr_120px]">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Produkti
-                    </label>
-                    <select
-                      value={row.productId}
-                      onChange={(event) =>
-                        updateRow(row.id, "productId", event.target.value)
-                      }
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                    >
-                      <option value="">Zgjedh produktin</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Varianti
-                    </label>
-                    <select
-                      value={row.variantId}
-                      onChange={(event) =>
-                        updateRow(row.id, "variantId", event.target.value)
-                      }
-                      disabled={!row.productId || isLoadingVariants}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <option value="">
-                        {!row.productId
-                          ? "Zgjedh fillimisht produktin"
-                          : isLoadingVariants
-                            ? "Duke ngarkuar variantet..."
-                            : filteredVariants.length === 0
-                              ? "Nuk ka variante ne stok"
-                              : "Zgjedh variantin"}
-                      </option>
-                      {filteredVariants.map((variant) => (
-                        <option key={variant.id} value={variant.id}>
-                          Nr {variant.size} | {variant.color} | stok {variant.availableStock} |{" "}
-                          {variant.price.toFixed(2)} EUR
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Sasia
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={row.quantity}
-                      onChange={(event) =>
-                        updateRow(row.id, "quantity", event.target.value)
-                      }
-                      max={selectedVariant?.availableStock ?? undefined}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                    />
-                  </div>
-                </div>
-
-                {selectedVariant ? (
-                  <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:flex-row sm:items-center">
-                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                      {selectedVariant.imagePath ? (
-                        <UploadedImage
-                          src={selectedVariant.imagePath}
-                          alt={`${selectedVariant.productLabel} ${selectedVariant.color}`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-800">
-                        Nr {selectedVariant.size} / {selectedVariant.color}
-                      </span>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700">
-                        stok {selectedVariant.availableStock}
-                      </span>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700">
-                        {selectedVariant.price.toFixed(2)} EUR
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {selectedItems.length > 0 ? (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
-          <p className="text-sm font-semibold text-slate-950">Zgjedhjet deri tani</p>
-          <div className="mt-3 space-y-2">
-            {selectedItems.map((item, index) => (
-              <div
-                key={`${item.id}-${index}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-100 bg-white/90 px-3 py-2 text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                    {item.imagePath ? (
-                      <UploadedImage
-                        src={item.imagePath}
-                        alt={`${item.productLabel} ${item.color}`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <p className="font-medium text-slate-900">
-                    {item.productLabel} | Nr {item.size} | {item.color}
-                  </p>
-                </div>
-                <p className="text-slate-600">
-                  {item.quantity} cope | {item.price.toFixed(2)} EUR
-                </p>
-              </div>
-            ))}
+            })}
           </div>
-        </div>
-      ) : null}
+        </section>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label
-            htmlFor="customerName"
-            className="block text-sm font-medium text-slate-800"
-          >
-            Emri i klientit
-          </label>
-          <input
-            id="customerName"
-            name="customerName"
-            type="text"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            placeholder="p.sh. Ardit Krasniqi"
-          />
-        </div>
+        <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                  <path d="M4.75 5.5h10.5M6 4v3m8-3v3M4.75 7v8.25h10.5V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M7.5 10.25h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </div>
+              <p className="text-xl font-semibold text-slate-950">Artikujt e Porosise</p>
+            </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="phone"
-            className="block text-sm font-medium text-slate-800"
-          >
-            Telefoni
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="text"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            placeholder="p.sh. 044123456"
-          />
-        </div>
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <span className="text-base">+</span>
+              Shto Artikull
+            </button>
+          </div>
+
+          <div className="space-y-4 px-5 py-5">
+            {rows.map((row, index) => {
+              const rowVariantId = Number(row.variantId);
+              const rowQuantity = Number(row.quantity) || 0;
+              const selectedProductId = Number(row.productId);
+              const productVariants = selectedProductId
+                ? variantsByProduct[selectedProductId] ?? []
+                : [];
+              const filteredVariants = productVariants
+                .map((variant) => {
+                  const reservedElsewhere =
+                    (reservedByVariant.get(variant.id) ?? 0) -
+                    (variant.id === rowVariantId ? rowQuantity : 0);
+
+                  return {
+                    ...variant,
+                    availableStock: Math.max(variant.stock - reservedElsewhere, 0),
+                  };
+                })
+                .filter(
+                  (variant) =>
+                    variant.availableStock > 0 || variant.id === rowVariantId,
+                );
+              const selectedVariant = filteredVariants.find(
+                (variant) => variant.id === Number(row.variantId),
+              );
+              const isLoadingVariants = selectedProductId
+                ? Boolean(loadingProducts[selectedProductId])
+                : false;
+
+              return (
+                <div
+                  key={row.id}
+                  className="rounded-[24px] border border-slate-200 bg-slate-50/50 px-4 py-4"
+                >
+                  <div className="grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)] lg:items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        {selectedVariant?.imagePath ? (
+                          <UploadedImage
+                            src={selectedVariant.imagePath}
+                            alt={`${selectedVariant.productLabel} ${selectedVariant.color}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                            IMG
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold leading-6 text-slate-950">
+                          {selectedVariant?.productLabel || `Artikulli ${index + 1}`}
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                          {selectedVariant
+                            ? `Nr ${selectedVariant.size} | ${selectedVariant.color}`
+                            : "Zgjidh produkt dhe variant"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-[minmax(150px,0.9fr)_minmax(210px,1.1fr)_70px_96px_28px] md:items-end">
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Produkti
+                        </label>
+                        <select
+                          value={row.productId}
+                          onChange={(event) =>
+                            updateRow(row.id, "productId", event.target.value)
+                          }
+                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                        >
+                          <option value="">Zgjidh produktin</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Varianti
+                        </label>
+                        <select
+                          value={row.variantId}
+                          onChange={(event) =>
+                            updateRow(row.id, "variantId", event.target.value)
+                          }
+                          disabled={!row.productId || isLoadingVariants}
+                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                        >
+                          <option value="">
+                            {!row.productId
+                              ? "Zgjidh variantin"
+                              : isLoadingVariants
+                                ? "Duke ngarkuar..."
+                                : filteredVariants.length === 0
+                                  ? "Pa stok"
+                                  : "Zgjidh variantin"}
+                          </option>
+                          {filteredVariants.map((variant) => (
+                            <option key={variant.id} value={variant.id}>
+                              Masa {variant.size} | {variant.color} | stok {variant.availableStock}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Sasia
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={row.quantity}
+                          onChange={(event) =>
+                            updateRow(row.id, "quantity", event.target.value)
+                          }
+                          max={selectedVariant?.availableStock ?? undefined}
+                          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Cmimi
+                        </label>
+                        <div className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-semibold text-slate-900">
+                          {selectedVariant ? `${selectedVariant.price.toFixed(2)} EUR` : "-"}
+                        </div>
+                      </div>
+
+                      <div className="flex h-11 items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.id)}
+                          disabled={rows.length === 1}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label={`Hiq artikullin ${index + 1}`}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                            <path
+                              d="M5.75 6.5h8.5M8 6.5V5.25A1.25 1.25 0 0 1 9.25 4h1.5A1.25 1.25 0 0 1 12 5.25V6.5M7 8.25v5.25M10 8.25v5.25M13 8.25v5.25M6.5 6.5 7 15a1 1 0 0 0 1 .94h4a1 1 0 0 0 1-.94l.5-8.5"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                <path d="M10 5.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5ZM4.25 17.25v-.5A3.75 3.75 0 0 1 8 13h4a3.75 3.75 0 0 1 3.75 3.75v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <p className="text-xl font-semibold text-slate-950">Informacioni i Klientit</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="customerName" className="mb-2 block text-sm font-medium text-slate-700">
+                Emri i Klientit
+              </label>
+              <input
+                id="customerName"
+                name="customerName"
+                type="text"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                placeholder="Filan Fisteku"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="mb-2 block text-sm font-medium text-slate-700">
+                Telefoni
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="text"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                placeholder="+383 4X XXX XXX"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="instagram" className="mb-2 block text-sm font-medium text-slate-700">
+              Username / Referenca
+            </label>
+            <input
+              id="instagram"
+              name="instagram"
+              type="text"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+              placeholder="@username_instagram"
+            />
+          </div>
+        </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label
-            htmlFor="instagram"
-            className="block text-sm font-medium text-slate-800"
+      <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+        <section className="rounded-[28px] bg-[#0f256c] px-5 py-6 text-white shadow-[0_22px_40px_rgba(15,37,108,0.2)]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                <path d="M5 5.75h10M5 10h10M5 14.25h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </div>
+            <p className="text-2xl font-semibold">Permbledhja</p>
+          </div>
+
+          <dl className="mt-6 space-y-4 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-white/70">Artikuj ne porosi</dt>
+              <dd className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold">
+                {selectedItems.length} items
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-white/70">Nentotali</dt>
+              <dd className="font-semibold">{subtotal.toFixed(2)} EUR</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-white/70">Transporti</dt>
+              <dd className="font-semibold">{shipping.toFixed(2)} EUR</dd>
+            </div>
+          </dl>
+
+          <div className="mt-8 flex items-end justify-between gap-4 border-t border-white/10 pt-5">
+            <div>
+              <p className="text-sm text-white/70">Totali</p>
+              <p className="mt-1 text-4xl font-semibold tracking-tight">
+                {grandTotal.toFixed(2)} EUR
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-[#0f256c] transition hover:bg-slate-100"
           >
-            Username / Referenca
-          </label>
-          <input
-            id="instagram"
-            name="instagram"
-            type="text"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            placeholder="p.sh. @klienti ose referenca e porosise"
+            Krijo Porosine
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <path d="M4.75 10h10.5M11 6.25 14.75 10 11 13.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </section>
+
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                <path d="M4.75 5.75h10.5M4.75 9.5h10.5M4.75 13.25h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </div>
+            <p className="text-xl font-semibold text-slate-950">Shenime</p>
+          </div>
+
+          <textarea
+            id="notes"
+            name="notes"
+            rows={5}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            placeholder="Shto ndonje detaj specifik per dergesen..."
           />
-        </div>
+        </section>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Artikuj ne porosi
-          </p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-            {totalPairs}
-          </p>
-        </div>
-      </div>
+        <section className="rounded-[28px] border border-emerald-200 bg-emerald-950 p-5 text-emerald-50 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-emerald-950">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                <path d="M10 3.75 5.75 10h3l-.75 6.25L14.25 10h-3l.75-6.25Z" fill="currentColor" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold">Gjendja e Inventarit</p>
+              <p className="mt-2 text-sm leading-6 text-emerald-100/80">
+                Artikujt e zgjedhur jane te disponueshem. Pasi te krijohet porosia,
+                gjendja do te perditesohet automatikisht.
+              </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                {allInStock ? "Gati per ruajtje" : "Kontrollo sasine"}
+              </p>
+            </div>
+          </div>
+        </section>
 
-      <div className="space-y-2">
-        <label
-          htmlFor="notes"
-          className="block text-sm font-medium text-slate-800"
-        >
-          Shenime
-        </label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows={4}
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-          placeholder="Adresa, komente shtese, menyra e dorezimit..."
-        />
-      </div>
-
-      <div className="flex flex-col gap-3 pt-3 sm:flex-row">
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(5,150,105,0.24)] transition hover:bg-emerald-500"
-        >
-          Ruaj porosine
-        </button>
         <Link
-          href="/products"
-          className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+          href="/orders"
+          className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
         >
-          Shiko produktet
+          Kthehu te porosite
         </Link>
-      </div>
+      </aside>
     </form>
   );
 }
