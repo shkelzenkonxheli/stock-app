@@ -23,6 +23,22 @@ export function ImageFileInput({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const clearSelection = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setPreviewUrl(null);
+    setErrorMessage(null);
+    onHasFileChange?.(false);
+
+    const input = document.getElementById(id) as HTMLInputElement | null;
+
+    if (input) {
+      input.value = "";
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -79,6 +95,15 @@ export function ImageFileInput({
               alt="Preview"
               className="h-64 w-full object-cover"
             />
+            <div className="flex justify-end border-t border-slate-100 px-3 py-3">
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         ) : null}
       </div>
