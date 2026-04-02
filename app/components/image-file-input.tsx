@@ -11,6 +11,8 @@ type ImageFileInputProps = {
   onHasFileChange?: (hasFile: boolean) => void;
 };
 
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 export function ImageFileInput({
   id,
   name,
@@ -19,6 +21,7 @@ export function ImageFileInput({
   onHasFileChange,
 }: ImageFileInputProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -48,11 +51,23 @@ export function ImageFileInput({
 
             if (!file) {
               setPreviewUrl(null);
+              setErrorMessage(null);
+              onHasFileChange?.(false);
+              return;
+            }
+
+            if (file.size > MAX_IMAGE_SIZE_BYTES) {
+              setPreviewUrl(null);
+              setErrorMessage(
+                "Fotoja eshte me e madhe se 5MB. Zgjedh nje file me te vogel.",
+              );
+              event.currentTarget.value = "";
               onHasFileChange?.(false);
               return;
             }
 
             setPreviewUrl(URL.createObjectURL(file));
+            setErrorMessage(null);
             onHasFileChange?.(true);
           }}
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2.5 file:font-medium file:text-white hover:file:bg-slate-800"
@@ -69,6 +84,11 @@ export function ImageFileInput({
       </div>
       {helperText ? (
         <p className="mt-2 text-xs text-slate-500">{helperText}</p>
+      ) : null}
+      {errorMessage ? (
+        <p className="mt-2 text-xs font-medium text-rose-600">
+          {errorMessage}
+        </p>
       ) : null}
     </div>
   );
