@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type EditProductPageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams?: Promise<{
+    error?: string;
   }>;
 };
 
@@ -21,6 +25,33 @@ async function updateProduct(formData: FormData) {
 
   if (!productId || !name || !brand) {
     return;
+  }
+
+  const existingProduct = await prisma.product.findFirst({
+    where: {
+      id: {
+        not: productId,
+      },
+      name: {
+        equals: name,
+        mode: "insensitive",
+      },
+      brand: {
+        equals: brand,
+        mode: "insensitive",
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingProduct) {
+    redirect(
+      `/products/${productId}/edit?error=${encodeURIComponent(
+        "Ky model ekziston tashme per kete brand. Ndrysho modelin ose mbaje produktin ekzistues.",
+      )}`,
+    );
   }
 
   await prisma.product.update({
@@ -38,10 +69,14 @@ async function updateProduct(formData: FormData) {
   redirect(`/products/${productId}`);
 }
 
-export default async function EditProductPage({ params }: EditProductPageProps) {
+export default async function EditProductPage({
+  params,
+  searchParams,
+}: EditProductPageProps) {
   await requireRole(["SUPER_ADMIN"]);
 
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const productId = Number(id);
 
   if (Number.isNaN(productId)) {
@@ -55,6 +90,8 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   if (!product) {
     notFound();
   }
+
+  const errorMessage = resolvedSearchParams?.error;
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -87,6 +124,14 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
             </Link>
           </div>
         </div>
+
+        {errorMessage ? (
+          <FlashMessage
+            type="error"
+            text={errorMessage}
+            className="mt-6 rounded-2xl px-4 py-3 text-sm shadow-sm"
+          />
+        ) : null}
 
         <form action={updateProduct} className="mt-8 space-y-5">
           <input type="hidden" name="productId" value={product.id} />

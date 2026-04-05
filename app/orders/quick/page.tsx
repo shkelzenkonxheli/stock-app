@@ -200,6 +200,17 @@ export default async function QuickOrdersPage({
       id: true,
       name: true,
       brand: true,
+      variants: {
+        where: {
+          imagePath: {
+            not: null,
+          },
+        },
+        select: {
+          imagePath: true,
+        },
+        take: 1,
+      },
     },
     orderBy: [{ name: "asc" }, { brand: "asc" }],
   });
@@ -215,9 +226,6 @@ export default async function QuickOrdersPage({
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
               Porosi te shpejta
             </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              Cdo rresht ruhet si nje porosi dhe stoku zbritet automatikisht sipas sasise.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -248,7 +256,9 @@ export default async function QuickOrdersPage({
           action={createQuickOrders}
           products={products.map((product) => ({
             id: product.id,
-            label: `${product.name} | ${product.brand}`,
+            name: product.name,
+            brand: product.brand,
+            imagePath: product.variants[0]?.imagePath ?? null,
           }))}
         />
       </section>

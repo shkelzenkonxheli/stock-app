@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -16,6 +17,30 @@ async function createProduct(formData: FormData) {
     return;
   }
 
+  const existingProduct = await prisma.product.findFirst({
+    where: {
+      name: {
+        equals: name,
+        mode: "insensitive",
+      },
+      brand: {
+        equals: brand,
+        mode: "insensitive",
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingProduct) {
+    redirect(
+      `/products/new?error=${encodeURIComponent(
+        "Ky model ekziston tashme per kete brand. Ndrysho modelin ose zgjidh produktin ekzistues.",
+      )}`,
+    );
+  }
+
   const product = await prisma.product.create({
     data: {
       name,
@@ -29,8 +54,19 @@ async function createProduct(formData: FormData) {
   redirect(`/products/${product.id}`);
 }
 
-export default async function NewProductPage() {
+type NewProductPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function NewProductPage({
+  searchParams,
+}: NewProductPageProps) {
   await requireRole(["SUPER_ADMIN"]);
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = resolvedSearchParams?.error;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ffedd5_0%,transparent_20%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -46,6 +82,14 @@ export default async function NewProductPage() {
             Krijo modelin baze te patikes. Pas ruajtjes kalon direkt te faqja e
             produktit per te shtuar variantet sipas numrit dhe ngjyres.
           </p>
+
+          {errorMessage ? (
+            <FlashMessage
+              type="error"
+              text={errorMessage}
+              className="mt-6 rounded-2xl px-4 py-3 text-sm shadow-sm"
+            />
+          ) : null}
 
           <form action={createProduct} className="mt-8 space-y-5">
             <div className="space-y-2">

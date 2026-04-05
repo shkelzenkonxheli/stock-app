@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -6,7 +6,9 @@ import { UploadedImage } from "@/app/components/uploaded-image";
 
 type ProductOption = {
   id: number;
-  label: string;
+  name: string;
+  brand: string;
+  imagePath: string | null;
 };
 
 type OrderVariant = {
@@ -40,65 +42,64 @@ const sourceOptions: Array<{ value: OrderSource; label: string }> = [
   { value: "WHOLESALE", label: "Shumice" },
 ];
 
-function createEmptyRow(): QuickOrderRow {
+function createRow(productId: number, variantId: number): QuickOrderRow {
   return {
     id: crypto.randomUUID(),
-    productId: "",
-    variantId: "",
+    productId: String(productId),
+    variantId: String(variantId),
     quantity: "1",
   };
 }
 
 export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
-  const [rows, setRows] = useState<QuickOrderRow[]>([createEmptyRow()]);
+  const [rows, setRows] = useState<QuickOrderRow[]>([]);
   const [variantsByProduct, setVariantsByProduct] = useState<
     Record<number, OrderVariant[]>
   >({});
   const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>(
     {},
   );
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [lightboxImage, setLightboxImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
 
   useEffect(() => {
-    const productIdsToLoad = [
-      ...new Set(
-        rows
-          .map((row) => Number(row.productId))
-          .filter((productId) => productId > 0 && !variantsByProduct[productId]),
-      ),
-    ];
+    const productId = Number(selectedProductId);
 
-    if (productIdsToLoad.length === 0) {
+    if (!productId || variantsByProduct[productId]) {
       return;
     }
 
     let isCancelled = false;
 
     const loadVariants = async () => {
-      for (const productId of productIdsToLoad) {
-        setLoadingProducts((current) => ({ ...current, [productId]: true }));
+      setLoadingProducts((current) => ({ ...current, [productId]: true }));
 
-        try {
-          const response = await fetch(`/api/products/${productId}/variants`, {
-            cache: "no-store",
-          });
+      try {
+        const response = await fetch(`/api/products/${productId}/variants`, {
+          cache: "no-store",
+        });
 
-          if (!response.ok) {
-            continue;
-          }
+        if (!response.ok) {
+          return;
+        }
 
-          const data = (await response.json()) as OrderVariant[];
+        const data = (await response.json()) as OrderVariant[];
 
-          if (!isCancelled) {
-            setVariantsByProduct((current) => ({
-              ...current,
-              [productId]: data,
-            }));
-          }
-        } finally {
-          if (!isCancelled) {
-            setLoadingProducts((current) => ({ ...current, [productId]: false }));
-          }
+        if (!isCancelled) {
+          setVariantsByProduct((current) => ({
+            ...current,
+            [productId]: data,
+          }));
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingProducts((current) => ({ ...current, [productId]: false }));
         }
       }
     };
@@ -108,7 +109,31 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     return () => {
       isCancelled = true;
     };
-  }, [rows, variantsByProduct]);
+  }, [selectedProductId, variantsByProduct]);
+
+  const brands = useMemo(
+    () =>
+      [...new Set(products.map((product) => product.brand))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [products],
+  );
+
+  const filteredProducts = useMemo(
+    () =>
+      selectedBrand
+        ? products.filter((product) => product.brand === selectedBrand)
+        : [],
+    [products, selectedBrand],
+  );
+
+  const currentProductId = Number(selectedProductId);
+  const currentVariants = currentProductId
+    ? variantsByProduct[currentProductId] ?? []
+    : [];
+  const currentProductLoading = currentProductId
+    ? Boolean(loadingProducts[currentProductId])
+    : false;
 
   const variantUsage = useMemo(() => {
     const totals = new Map<number, number>();
@@ -116,6 +141,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     for (const row of rows) {
       const variantId = Number(row.variantId);
       const quantity = Number(row.quantity);
+
       if (!variantId) {
         continue;
       }
@@ -129,64 +155,52 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     return totals;
   }, [rows]);
 
-  const updateRow = (
-    rowId: string,
-    field: keyof Omit<QuickOrderRow, "id">,
-    value: string,
-  ) => {
-    setRows((currentRows) =>
-      currentRows.map((row) => {
-        if (row.id !== rowId) {
-          return row;
-        }
+  const variantOptions = currentVariants
+    .map((variant) => ({
+      ...variant,
+      availableStock: variant.stock - (variantUsage.get(variant.id) ?? 0),
+    }))
+    .filter((variant) => variant.availableStock > 0)
+    .sort((a, b) => {
+      const colorComparison = a.color.localeCompare(b.color, "sq", {
+        sensitivity: "base",
+      });
 
-        if (field === "productId") {
-          return {
-            ...row,
-            productId: value,
-            variantId: "",
-          };
-        }
+      if (colorComparison !== 0) {
+        return colorComparison;
+      }
 
-        return {
-          ...row,
-          [field]: value,
-        };
-      }),
+      return a.size.localeCompare(b.size, "sq", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+  const selectedRows = rows
+    .map((row) => {
+      const productId = Number(row.productId);
+      const variantId = Number(row.variantId);
+      const product = products.find((item) => item.id === productId) ?? null;
+      const variant =
+        Object.values(variantsByProduct)
+          .flat()
+          .find((item) => item.id === variantId) ?? null;
+
+      if (!product || !variant) {
+        return null;
+      }
+
+      return { row, product, variant };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        row: QuickOrderRow;
+        product: ProductOption;
+        variant: OrderVariant;
+      } => item !== null,
     );
-  };
-
-  const addRow = () => {
-    setRows((currentRows) => [...currentRows, createEmptyRow()]);
-  };
-
-  const copyRow = (rowId: string) => {
-    setRows((currentRows) => {
-      const rowToCopy = currentRows.find((row) => row.id === rowId);
-
-      if (!rowToCopy) {
-        return currentRows;
-      }
-
-      return [
-        ...currentRows,
-        {
-          ...rowToCopy,
-          id: crypto.randomUUID(),
-        },
-      ];
-    });
-  };
-
-  const removeRow = (rowId: string) => {
-    setRows((currentRows) => {
-      if (currentRows.length === 1) {
-        return currentRows;
-      }
-
-      return currentRows.filter((row) => row.id !== rowId);
-    });
-  };
 
   const serializedRows = JSON.stringify(
     rows
@@ -197,413 +211,305 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
       .filter((row) => row.variantId > 0 && row.quantity > 0),
   );
 
-  const readyRows = rows.filter(
-    (row) => Number(row.variantId) > 0 && Number(row.quantity) > 0,
-  ).length;
-  const selectedVariantsPreview = rows
-    .map((row) => {
-      const variantId = Number(row.variantId);
+  const totalQuantity = rows.reduce(
+    (sum, row) => sum + (Number(row.quantity) > 0 ? Number(row.quantity) : 0),
+    0,
+  );
 
-      if (!variantId) {
-        return null;
+  const addSelectedVariant = (variantIdValue: string) => {
+    const productId = Number(selectedProductId);
+    const variantId = Number(variantIdValue);
+
+    if (!productId || !variantId) {
+      setSelectedVariantId(variantIdValue);
+      return;
+    }
+
+    setRows((currentRows) => {
+      const existingRow = currentRows.find(
+        (row) => Number(row.variantId) === variantId,
+      );
+
+      if (existingRow) {
+        return currentRows.map((row) =>
+          row.id === existingRow.id
+            ? {
+                ...row,
+                quantity: String((Number(row.quantity) || 1) + 1),
+              }
+            : row,
+        );
       }
 
-      return Object.values(variantsByProduct)
-        .flat()
-        .find((variant) => variant.id === variantId) ?? null;
-    })
-    .filter((variant): variant is OrderVariant => variant !== null);
+      return [...currentRows, createRow(productId, variantId)];
+    });
+
+    setSelectedVariantId("");
+  };
+
+  const changeQuantity = (rowId: string, delta: number) => {
+    setRows((currentRows) =>
+      currentRows.map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+
+        const nextQuantity = Math.max(1, (Number(row.quantity) || 1) + delta);
+
+        return {
+          ...row,
+          quantity: String(nextQuantity),
+        };
+      }),
+    );
+  };
+
+  const removeRow = (rowId: string) => {
+    setRows((currentRows) => currentRows.filter((row) => row.id !== rowId));
+  };
 
   return (
     <form action={action} className="mt-8 space-y-5">
       <input type="hidden" name="source" value={source} />
       <input type="hidden" name="rows" value={serializedRows} />
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.05)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Burimi
-            </p>
-            <p className="mt-1 text-sm text-slate-700">
-              Zgjedhe kanalin per kete batch porosish.
-            </p>
-          </div>
+      <div className="rounded-[28px] bg-white p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Burimi i porosise
+        </p>
 
-          <div className="flex flex-wrap gap-2">
-            {sourceOptions.map((option) => {
-              const active = source === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setSource(option.value)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                    active
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.05)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-semibold text-slate-950">
-              Porosite e shpejta
-            </p>
-            {selectedVariantsPreview.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {selectedVariantsPreview.slice(0, 4).map((variant, index) => (
-                  <div
-                    key={`${variant.id}-${index}`}
-                    className="flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1.5"
-                  >
-                    <div className="h-7 w-7 overflow-hidden rounded-full border border-slate-200 bg-white">
-                      {variant.imagePath ? (
-                        <UploadedImage
-                          src={variant.imagePath}
-                          alt={`${variant.productLabel} ${variant.color}`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <span className="text-xs font-medium text-emerald-800">
-                      Nr {variant.size} / {variant.color}
-                    </span>
-                  </div>
-                ))}
-                {selectedVariantsPreview.length > 4 ? (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                    +{selectedVariantsPreview.length - 4}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={addRow}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            + Shto rresht
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          <span>
-            Default sasia eshte `1`, por mund ta ndryshosh nese nje porosi ka me shume pale te te njejtit variant.
-          </span>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-            {readyRows} gati
-          </span>
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-            {rows.reduce((sum, row) => sum + (Number(row.quantity) > 0 ? Number(row.quantity) : 0), 0)} pale
-          </span>
-        </div>
-
-        <div className="space-y-3 lg:hidden">
-          {rows.map((row, index) => {
-            const selectedProductId = Number(row.productId);
-            const productVariants = selectedProductId
-              ? variantsByProduct[selectedProductId] ?? []
-              : [];
-            const rowVariantId = Number(row.variantId);
-            const rowQuantity = Number(row.quantity) > 0 ? Number(row.quantity) : 0;
-            const filteredVariants = productVariants
-              .map((variant) => ({
-                ...variant,
-                availableStock:
-                  variant.stock -
-                  ((variantUsage.get(variant.id) ?? 0) -
-                    (variant.id === rowVariantId ? rowQuantity : 0)),
-              }))
-              .filter(
-                (variant) => variant.availableStock > 0 || variant.id === rowVariantId,
-              );
-            const remainingAfterSelection = Math.max(
-              0,
-              (filteredVariants.find((variant) => variant.id === rowVariantId)
-                ?.availableStock ?? 0) - rowQuantity,
-            );
-            const isLoadingVariants = selectedProductId
-              ? Boolean(loadingProducts[selectedProductId])
-              : false;
+        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+          {sourceOptions.map((option) => {
+            const active = source === option.value;
 
             return (
-              <div
-                key={row.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4"
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setSource(option.value)}
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] transition ${
+                  active
+                    ? "border-emerald-200 bg-emerald-300/55 text-slate-950"
+                    : "border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-50"
+                }`}
               >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Rreshti {index + 1}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => copyRow(row.id)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      Kopjo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeRow(row.id)}
-                      disabled={rows.length === 1}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Hiq
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px] sm:items-end">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Produkti
-                    </label>
-                    <select
-                      value={row.productId}
-                      onChange={(event) =>
-                        updateRow(row.id, "productId", event.target.value)
-                      }
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                    >
-                      <option value="">Zgjedh produktin</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Varianti
-                    </label>
-                    <select
-                      value={row.variantId}
-                      onChange={(event) =>
-                        updateRow(row.id, "variantId", event.target.value)
-                      }
-                      disabled={!row.productId || isLoadingVariants}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <option value="">
-                        {!row.productId
-                          ? "Zgjedh produktin"
-                          : isLoadingVariants
-                            ? "Duke ngarkuar variantet..."
-                            : filteredVariants.length === 0
-                              ? "Nuk ka stok"
-                              : "Zgjedh variantin"}
-                      </option>
-                      {filteredVariants.map((variant) => (
-                        <option key={variant.id} value={variant.id}>
-                          Nr {variant.size} | {variant.color} | stok {variant.availableStock}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-800">
-                      Sasia
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={row.quantity}
-                      onChange={(event) =>
-                        updateRow(row.id, "quantity", event.target.value)
-                      }
-                      placeholder="1"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                    />
-                  </div>
-                </div>
-
-                {row.variantId ? (
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    Stoku i mbetur per kete zgjedhje:{" "}
-                    <span className="font-semibold text-slate-900">
-                      {remainingAfterSelection}
-                    </span>
-                  </div>
-                ) : null}
-
-              </div>
+                {option.label}
+              </button>
             );
           })}
         </div>
 
-        <div className="hidden overflow-x-auto lg:block">
-          <table className="min-w-[760px] w-full text-sm">
-            <thead className="bg-slate-50 text-left">
-              <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                <th className="px-4 py-3">Produkti</th>
-                <th className="px-4 py-3">Varianti</th>
-                <th className="px-4 py-3">Sasia</th>
-                <th className="px-4 py-3 text-right">Veprime</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {rows.map((row) => {
-                const selectedProductId = Number(row.productId);
-                const productVariants = selectedProductId
-                  ? variantsByProduct[selectedProductId] ?? []
-                  : [];
-                const rowVariantId = Number(row.variantId);
-                const rowQuantity = Number(row.quantity) > 0 ? Number(row.quantity) : 0;
-                const filteredVariants = productVariants
-                  .map((variant) => ({
-                    ...variant,
-                    availableStock:
-                      variant.stock -
-                      ((variantUsage.get(variant.id) ?? 0) -
-                        (variant.id === rowVariantId ? rowQuantity : 0)),
-                  }))
-                  .filter(
-                    (variant) => variant.availableStock > 0 || variant.id === rowVariantId,
-                  );
-                const remainingAfterSelection = Math.max(
-                  0,
-                  (filteredVariants.find((variant) => variant.id === rowVariantId)
-                    ?.availableStock ?? 0) - rowQuantity,
-                );
-                const isLoadingVariants = selectedProductId
-                  ? Boolean(loadingProducts[selectedProductId])
-                  : false;
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <select
+            value={selectedBrand}
+            onChange={(event) => {
+              setSelectedBrand(event.target.value);
+              setSelectedProductId("");
+              setSelectedVariantId("");
+            }}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+          >
+            <option value="">Zgjidh Brandin</option>
+            {brands.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
 
-                return (
-                  <tr key={row.id}>
-                    <td className="px-4 py-3">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
-                        Produkti
-                      </label>
-                      <select
-                        value={row.productId}
-                        onChange={(event) =>
-                          updateRow(row.id, "productId", event.target.value)
-                        }
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                      >
-                        <option value="">Zgjedh produktin</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
-                        Varianti
-                      </label>
-                      <div className="space-y-2">
-                        <select
-                          value={row.variantId}
-                          onChange={(event) =>
-                            updateRow(row.id, "variantId", event.target.value)
-                          }
-                          disabled={!row.productId || isLoadingVariants}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <option value="">
-                            {!row.productId
-                              ? "Zgjedh produktin"
-                              : isLoadingVariants
-                                ? "Duke ngarkuar variantet..."
-                                : filteredVariants.length === 0
-                                  ? "Nuk ka stok"
-                                  : "Zgjedh variantin"}
-                          </option>
-                          {filteredVariants.map((variant) => (
-                            <option key={variant.id} value={variant.id}>
-                              Nr {variant.size} | {variant.color} | stok {variant.availableStock}
-                            </option>
-                          ))}
-                        </select>
-                        {row.variantId ? (
-                          <p className="text-xs font-medium text-slate-500">
-                            Stoku i mbetur:{" "}
-                            <span className="font-semibold text-slate-900">
-                              {remainingAfterSelection}
-                            </span>
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
-                        Sasia
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={row.quantity}
-                        onChange={(event) =>
-                          updateRow(row.id, "quantity", event.target.value)
-                        }
-                        placeholder="1"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 xl:hidden">
-                        Veprime
-                      </label>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => copyRow(row.id)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-                        >
-                          Kopjo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeRow(row.id)}
-                          disabled={rows.length === 1}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Hiq
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <select
+            value={selectedProductId}
+            onChange={(event) => {
+              setSelectedProductId(event.target.value);
+              setSelectedVariantId("");
+            }}
+            disabled={!selectedBrand}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {!selectedBrand ? "Zgjidh Brandin" : "Zgjidh Modelin"}
+            </option>
+            {filteredProducts.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedVariantId}
+            onChange={(event) => addSelectedVariant(event.target.value)}
+            disabled={!selectedProductId || currentProductLoading}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {!selectedProductId
+                ? "Zgjidh Modelin"
+                : currentProductLoading
+                  ? "Duke ngarkuar variantet..."
+                  : variantOptions.length === 0
+                    ? "Nuk ka stok"
+                    : "Zgjidh Variantin"}
+            </option>
+            {variantOptions.map((variant) => (
+              <option key={variant.id} value={variant.id}>
+                Nr {variant.size} | {variant.color} | stok {variant.availableStock}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 pt-3 sm:flex-row">
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(5,150,105,0.24)] transition hover:bg-emerald-500"
-        >
-          Ruaj porosite
-        </button>
+      <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_10px_25px_rgba(15,23,42,0.05)]">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Produktet e zgjedhura
+          </p>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+            {totalQuantity} produkte ne total
+          </span>
+        </div>
+
+        <div className="px-5 py-3">
+          <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_120px_120px_80px] gap-5 border-b border-slate-100 pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 md:grid">
+            <span>Produkti</span>
+            <span>Varianti</span>
+            <span>Cmimi</span>
+            <span>Sasia</span>
+            <span className="text-right">Aksionet</span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {selectedRows.length === 0 ? (
+              <div className="py-10 text-center text-sm text-slate-500">
+                Zgjidh brandin, modelin dhe variantin per ta shtuar ne liste.
+              </div>
+            ) : (
+              selectedRows.map(({ row, product, variant }) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-1 gap-5 py-4 md:grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_120px_120px_80px] md:items-center"
+                >
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        variant.imagePath
+                          ? setLightboxImage({
+                              src: variant.imagePath,
+                              alt: `${product.name} | Nr ${variant.size} | ${variant.color}`,
+                            })
+                          : null
+                      }
+                      className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                    >
+                      {variant.imagePath ? (
+                        <UploadedImage
+                          src={variant.imagePath}
+                          alt={`${product.name} ${variant.color}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </button>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-950">
+                        {product.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {product.brand}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+                      {variant.color} • Nr {variant.size}
+                    </span>
+                  </div>
+
+                  <div className="text-sm font-semibold text-slate-950">
+                    €{variant.price.toFixed(2)}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => changeQuantity(row.id, -1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-base font-semibold text-slate-700 transition hover:bg-slate-300"
+                    >
+                      -
+                    </button>
+                    <span className="min-w-6 text-center text-sm font-semibold text-slate-950">
+                      {row.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => changeQuantity(row.id, 1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-300 text-base font-semibold text-slate-950 transition hover:bg-emerald-400"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.id)}
+                      className="rounded-xl px-2.5 py-2 text-lg leading-none text-rose-500 transition hover:bg-rose-50"
+                      aria-label="Hiq"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col justify-end gap-3 sm:flex-row">
         <Link
           href="/orders"
-          className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-slate-600 transition hover:bg-slate-200"
         >
           Anulo
         </Link>
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white shadow-[0_10px_25px_rgba(5,150,105,0.24)] transition hover:bg-emerald-500"
+        >
+          Ruaj
+        </button>
       </div>
+
+      {lightboxImage ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4">
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute inset-0 cursor-default"
+            aria-label="Mbyll preview"
+          />
+          <div className="relative z-[101] w-full max-w-3xl">
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-lg font-semibold text-slate-900 shadow-sm transition hover:bg-white"
+              aria-label="Mbyll"
+            >
+              ×
+            </button>
+            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-2xl">
+              <UploadedImage
+                src={lightboxImage.src}
+                alt={lightboxImage.alt}
+                className="max-h-[80vh] w-full object-contain bg-slate-100"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
