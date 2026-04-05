@@ -3,7 +3,6 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
-import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
@@ -335,9 +334,6 @@ export default async function ProductDetailsPage({
     (sum, variant) => sum + variant.stock,
     0,
   );
-  const lowStockVariantsCount = allVariants.filter(
-    (variant) => variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
-  ).length;
   const colors = [...new Set(allVariants.map((variant) => variant.color))];
   const sizes = [...new Set(allVariants.map((variant) => variant.size))];
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
@@ -393,43 +389,6 @@ export default async function ProductDetailsPage({
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-[26px] border border-slate-200 bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                {allVariants.length} variante
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Gjithsej Variante
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Konfigurime aktive ne katalog
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">
-                {totalStock} cope ne stok
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Inventari Total
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Njesi te disponueshme per shitje
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-rose-200 bg-white px-5 py-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-600">
-                {lowStockVariantsCount} stok i ulet
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-rose-600">
-                Rimbushje e Nevojshme
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Variante poshte pragut kritik
-              </p>
-            </div>
-          </div>
         </section>
 
         <section className="rounded-[30px] border border-slate-200 bg-white px-3 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-4 sm:py-5">

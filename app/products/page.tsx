@@ -163,7 +163,7 @@ export default async function ProductsPage({
   const where: Prisma.ProductWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  const [products, totalProducts, filterProducts] = await Promise.all([
+  const [products, totalProducts, filterProducts, stockTotals] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: {
@@ -195,6 +195,14 @@ export default async function ProductsPage({
       },
       orderBy: [{ brand: "asc" }, { name: "asc" }],
     }),
+    prisma.variant.findMany({
+      where: {
+        product: where,
+      },
+      select: {
+        stock: true,
+      },
+    }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
@@ -211,19 +219,7 @@ export default async function ProductsPage({
         .map((product) => product.name),
     ),
   ];
-
-  const totalStock = products.reduce(
-    (sum, product) =>
-      sum + product.variants.reduce((variantSum, variant) => variantSum + variant.stock, 0),
-    0,
-  );
-  const allPrices = products.flatMap((product) =>
-    product.variants.map((variant) => Number(variant.price)),
-  );
-  const averagePrice =
-    allPrices.length > 0
-      ? allPrices.reduce((sum, price) => sum + price, 0) / allPrices.length
-      : 0;
+  const totalPairs = stockTotals.reduce((sum, variant) => sum + variant.stock, 0);
   const lowStockProducts = products.filter((product) =>
     product.variants.some(
       (variant) => variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
@@ -241,10 +237,13 @@ export default async function ProductsPage({
               </h1>
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
                 <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-                  • {totalProducts.toLocaleString("sq-AL")} Produkte gjithsej
+                  {totalProducts.toLocaleString("sq-AL")} Produkte gjithsej
+                </span>
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-700">
+                  {totalPairs.toLocaleString("sq-AL")} Patika ne total
                 </span>
                 <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 font-medium text-rose-600">
-                  • {lowStockProducts} Stoku i ulet
+                  {lowStockProducts} Stoku i ulet
                 </span>
               </div>
             </div>
@@ -264,47 +263,6 @@ export default async function ProductsPage({
                   + Shto Model te Ri
                 </Link>
               ) : null}
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-4">
-            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Brendi kryesor
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                {products[0]?.brand || "-"}
-              </p>
-              <p className="mt-2 text-sm text-emerald-600">+12% kete muaj</p>
-            </div>
-            <div className="rounded-[24px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Vlera e stokut
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                €{totalStock.toLocaleString("sq-AL")}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">Perditesuar tani</p>
-            </div>
-            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Mesatarja e cmimit
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                €{averagePrice.toFixed(2)}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">Per 1,284 njesi</p>
-            </div>
-            <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Shitjet e fundit
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                {totalProducts > 0 ? Math.min(totalProducts, 24) : 0} Cifte
-              </p>
-              <p className="mt-2 text-sm text-emerald-600">
-                Sot {Math.min(lowStockProducts, 12)} ore te fundit
-              </p>
             </div>
           </div>
         </section>
@@ -349,10 +307,6 @@ export default async function ProductsPage({
                     (sum, variant) => sum + variant.stock,
                     0,
                   );
-                  const lowStockVariantsCount = product.variants.filter(
-                    (variant) =>
-                      variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
-                  ).length;
                   const prices = product.variants.map((variant) =>
                     Number(variant.price),
                   );
@@ -377,9 +331,6 @@ export default async function ProductsPage({
                         </div>
                         <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                           {product.variants.length} var
-                          {lowStockVariantsCount > 0
-                            ? ` (${lowStockVariantsCount} low)`
-                            : ""}
                         </span>
                       </div>
 
@@ -493,11 +444,6 @@ export default async function ProductsPage({
                         (sum, variant) => sum + variant.stock,
                         0,
                       );
-                      const lowStockVariantsCount = product.variants.filter(
-                        (variant) =>
-                          variant.stock > 0 &&
-                          variant.stock <= LOW_STOCK_THRESHOLD,
-                      ).length;
                       const prices = product.variants.map((variant) =>
                         Number(variant.price),
                       );
@@ -526,9 +472,6 @@ export default async function ProductsPage({
                               <div>
                                 <p className="font-semibold text-slate-950">
                                   {product.name}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  SKU: {previewVariant?.sku || "-"}
                                 </p>
                               </div>
                             </div>
@@ -577,24 +520,16 @@ export default async function ProductsPage({
                           <td className="px-5 py-4 text-center">
                             <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
                               {product.variants.length}
-                              {lowStockVariantsCount > 0
-                                ? ` (${lowStockVariantsCount} low)`
-                                : ""}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-center">
-                            <div className="inline-flex items-center gap-2">
-                              <span className="font-semibold text-slate-900">
-                                {totalStock}
-                              </span>
-                              <span
-                                className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                  getStockTone(totalStock).badgeClassName
-                                }`}
-                              >
-                                {getStockTone(totalStock).label.toUpperCase()}
-                              </span>
-                            </div>
+                            <span
+                              className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                getStockTone(totalStock).badgeClassName
+                              }`}
+                            >
+                              {getStockTone(totalStock).label.toUpperCase()}
+                            </span>
                           </td>
                           <td className="px-5 py-4 text-right font-semibold tabular-nums text-slate-900">
                             {minPrice === null
@@ -702,3 +637,6 @@ export default async function ProductsPage({
     </main>
   );
 }
+
+
+

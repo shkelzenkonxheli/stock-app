@@ -76,14 +76,12 @@ export default async function Home() {
 
   const [
     totalProducts,
-    totalVariants,
     totalStockValueData,
     lowStockCount,
     ordersToday,
     recentMovements,
   ] = await Promise.all([
     prisma.product.count(),
-    prisma.variant.count(),
     prisma.variant.findMany({
       select: { stock: true, price: true },
     }),
@@ -129,6 +127,10 @@ export default async function Home() {
 
   const totalStockValue = totalStockValueData.reduce(
     (sum, variant) => sum + Number(variant.price) * variant.stock,
+    0,
+  );
+  const totalStockUnits = totalStockValueData.reduce(
+    (sum, variant) => sum + variant.stock,
     0,
   );
 
@@ -282,7 +284,7 @@ export default async function Home() {
               €{totalStockValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <p className="mt-4 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-              + {totalVariants.toLocaleString("sq-AL")} variante aktive
+              {totalStockUnits.toLocaleString("sq-AL")} cope ne stok
             </p>
           </div>
         </section>

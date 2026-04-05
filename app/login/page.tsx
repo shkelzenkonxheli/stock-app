@@ -70,7 +70,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/nike.jpg')" }}
+        style={{ backgroundImage: "url('/bg.jpg')" }}
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.42)_0%,rgba(15,23,42,0.58)_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.18)_0%,transparent_28%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.16)_0%,transparent_24%)]" />

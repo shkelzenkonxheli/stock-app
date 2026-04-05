@@ -197,10 +197,10 @@ export default async function NewOrderPage({
         <section className="rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
-              Shto Porosi te Re
+              Krijo Porosi te Re
             </h1>
             <p className="mt-3 text-base text-slate-600">
-              Plotesoni te dhenat per te regjistruar nje shitje te re ne sistem.
+              Plotesoni te dhenat per te krijuar nje fature te re shitjeje.
             </p>
           </div>
         </section>

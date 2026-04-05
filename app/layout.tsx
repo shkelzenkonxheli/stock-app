@@ -194,24 +194,6 @@ export default async function RootLayout({
                       </Link>
                     </div>
 
-                    <div className="hidden min-w-[280px] max-w-md flex-1 xl:block">
-                      <div className="relative">
-                        <input
-                          readOnly
-                          value=""
-                          placeholder="Kerko variante..."
-                          className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-600 outline-none placeholder:text-slate-400"
-                        />
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400 stroke-[1.8]"
-                        >
-                          <circle cx="11" cy="11" r="6" />
-                          <path d="m20 20-3.5-3.5" />
-                        </svg>
-                      </div>
-                    </div>
-
                     <div className="ml-auto flex items-center gap-3">
                       <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 sm:inline-flex">
                         {roleLabel(currentUser.role)}
@@ -249,4 +231,3 @@ export default async function RootLayout({
     </html>
   );
 }
-

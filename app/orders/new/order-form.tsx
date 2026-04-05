@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -236,17 +236,11 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
       <div className="space-y-6">
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                <path d="M10 3.5 16 6.75l-6 3.25-6-3.25L10 3.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                <path d="M4 10.25 10 13.5l6-3.25M4 13.25 10 16.5l6-3.25" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <p className="text-xl font-semibold text-slate-950">Burimi i Porosise</p>
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Burimi i Porosise
+          </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {sourceOptions.map((option) => {
               const active = source === option.value;
 
@@ -257,8 +251,8 @@ export function OrderForm({ action, products }: OrderFormProps) {
                   onClick={() => setSource(option.value)}
                   className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold transition ${
                     active
-                      ? "border-slate-900 bg-slate-950 text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)]"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                      ? "border-emerald-200 bg-emerald-300/55 text-slate-950"
+                      : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   {getSourceIcon(option.value)}
@@ -272,13 +266,16 @@ export function OrderForm({ action, products }: OrderFormProps) {
         <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
                 <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
                   <path d="M4.75 5.5h10.5M6 4v3m8-3v3M4.75 7v8.25h10.5V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M7.5 10.25h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
               </div>
-              <p className="text-xl font-semibold text-slate-950">Artikujt e Porosise</p>
+              <div>
+                <p className="text-xl font-semibold text-slate-950">Detajet e Produktit</p>
+                <p className="mt-1 text-sm text-slate-500">Zgjidh produktin, variantin dhe sasine.</p>
+              </div>
             </div>
 
             <button
@@ -287,7 +284,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <span className="text-base">+</span>
-              Shto Artikull
+              Shto rresht tjeter
             </button>
           </div>
 
@@ -353,7 +350,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                       </div>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-[minmax(150px,0.9fr)_minmax(210px,1.1fr)_70px_96px_28px] md:items-end">
+                    <div className="grid gap-3 md:grid-cols-[minmax(150px,0.95fr)_minmax(210px,1.15fr)_72px_110px_28px] md:items-end">
                       <div className="space-y-2">
                         <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                           Produkti
@@ -363,7 +360,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                           onChange={(event) =>
                             updateRow(row.id, "productId", event.target.value)
                           }
-                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                         >
                           <option value="">Zgjidh produktin</option>
                           {products.map((product) => (
@@ -384,7 +381,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                             updateRow(row.id, "variantId", event.target.value)
                           }
                           disabled={!row.productId || isLoadingVariants}
-                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
                         >
                           <option value="">
                             {!row.productId
@@ -415,7 +412,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                             updateRow(row.id, "quantity", event.target.value)
                           }
                           max={selectedVariant?.availableStock ?? undefined}
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                         />
                       </div>
 
@@ -465,7 +462,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
             <p className="text-xl font-semibold text-slate-950">Informacioni i Klientit</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             <div>
               <label htmlFor="customerName" className="mb-2 block text-sm font-medium text-slate-700">
                 Emri i Klientit
@@ -474,7 +471,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 id="customerName"
                 name="customerName"
                 type="text"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 placeholder="Filan Fisteku"
               />
             </div>
@@ -487,23 +484,23 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 id="phone"
                 name="phone"
                 type="text"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 placeholder="+383 4X XXX XXX"
               />
             </div>
-          </div>
 
-          <div className="mt-4">
-            <label htmlFor="instagram" className="mb-2 block text-sm font-medium text-slate-700">
-              Username / Referenca
-            </label>
-            <input
-              id="instagram"
-              name="instagram"
-              type="text"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
-              placeholder="@username_instagram"
-            />
+            <div>
+              <label htmlFor="instagram" className="mb-2 block text-sm font-medium text-slate-700">
+                Username / Referenca
+              </label>
+              <input
+                id="instagram"
+                name="instagram"
+                type="text"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                placeholder="@username"
+              />
+            </div>
           </div>
         </section>
       </div>
@@ -516,18 +513,18 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 <path d="M5 5.75h10M5 10h10M5 14.25h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-2xl font-semibold">Permbledhja</p>
+            <p className="text-2xl font-semibold">Përmbledhja</p>
           </div>
 
           <dl className="mt-6 space-y-4 text-sm">
             <div className="flex items-center justify-between gap-4">
-              <dt className="text-white/70">Artikuj ne porosi</dt>
+              <dt className="text-white/70">Produkte ({selectedItems.length})</dt>
               <dd className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold">
                 {selectedItems.length} items
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <dt className="text-white/70">Nentotali</dt>
+              <dt className="text-white/70">Nëntotali</dt>
               <dd className="font-semibold">{subtotal.toFixed(2)} EUR</dd>
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -547,7 +544,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
           <button
             type="submit"
-            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-[#0f256c] transition hover:bg-slate-100"
+            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(16,185,129,0.25)] transition hover:bg-emerald-400"
           >
             Krijo Porosine
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
@@ -563,7 +560,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 <path d="M4.75 5.75h10.5M4.75 9.5h10.5M4.75 13.25h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-xl font-semibold text-slate-950">Shenime</p>
+            <p className="text-xl font-semibold text-slate-950">Shënime</p>
           </div>
 
           <textarea
