@@ -66,7 +66,7 @@ export default async function RootLayout({
         },
         {
           href: "/products",
-          label: "Inventory",
+          label: "Products",
           icon: (
             <svg
               viewBox="0 0 24 24"
@@ -199,7 +199,7 @@ export default async function RootLayout({
                         <input
                           readOnly
                           value=""
-                          placeholder="Kërko variante..."
+                          placeholder="Kerko variante..."
                           className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-600 outline-none placeholder:text-slate-400"
                         />
                         <svg
@@ -249,3 +249,4 @@ export default async function RootLayout({
     </html>
   );
 }
+

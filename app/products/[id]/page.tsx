@@ -309,7 +309,7 @@ export default async function ProductDetailsPage({
         stock: true,
         price: true,
       },
-      orderBy: [{ size: "asc" }, { color: "asc" }],
+      orderBy: [{ color: "asc" }, { size: "asc" }],
     }),
     prisma.variant.findMany({
       where: variantsWhere,
@@ -323,7 +323,7 @@ export default async function ProductDetailsPage({
         stock: true,
         price: true,
       },
-      orderBy: [{ size: "asc" }, { color: "asc" }],
+      orderBy: [{ color: "asc" }, { size: "asc" }],
     }),
   ]);
 

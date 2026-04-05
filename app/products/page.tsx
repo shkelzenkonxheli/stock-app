@@ -14,15 +14,30 @@ type ProductsPageProps = {
   searchParams?: Promise<{
     page?: string;
     q?: string;
+    brand?: string;
+    model?: string;
   }>;
 };
 
-function buildProductsPageHref(page: number, q: string) {
+function buildProductsPageHref(
+  page: number,
+  q: string,
+  brand: string,
+  model: string,
+) {
   const params = new URLSearchParams();
   params.set("page", String(page));
 
   if (q) {
     params.set("q", q);
+  }
+
+  if (brand) {
+    params.set("brand", brand);
+  }
+
+  if (model) {
+    params.set("model", model);
   }
 
   return `/products?${params.toString()}`;
@@ -102,28 +117,53 @@ export default async function ProductsPage({
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
+  const selectedBrand = resolvedSearchParams?.brand?.trim() || "";
+  const selectedModel = resolvedSearchParams?.model?.trim() || "";
   const currentPage = Math.max(1, Number(resolvedSearchParams?.page) || 1);
   const skip = (currentPage - 1) * PAGE_SIZE;
-  const where: Prisma.ProductWhereInput = searchQuery
-    ? {
-        OR: [
-          {
-            name: {
-              contains: searchQuery,
-              mode: "insensitive",
-            },
-          },
-          {
-            brand: {
-              contains: searchQuery,
-              mode: "insensitive",
-            },
-          },
-        ],
-      }
-    : {};
+  const filters: Prisma.ProductWhereInput[] = [];
 
-  const [products, totalProducts] = await Promise.all([
+  if (searchQuery) {
+    filters.push({
+      OR: [
+        {
+          name: {
+            contains: searchQuery,
+            mode: "insensitive",
+          },
+        },
+        {
+          brand: {
+            contains: searchQuery,
+            mode: "insensitive",
+          },
+        },
+      ],
+    });
+  }
+
+  if (selectedBrand) {
+    filters.push({
+      brand: {
+        equals: selectedBrand,
+        mode: "insensitive",
+      },
+    });
+  }
+
+  if (selectedModel) {
+    filters.push({
+      name: {
+        equals: selectedModel,
+        mode: "insensitive",
+      },
+    });
+  }
+
+  const where: Prisma.ProductWhereInput =
+    filters.length > 0 ? { AND: filters } : {};
+
+  const [products, totalProducts, filterProducts] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: {
@@ -148,10 +188,29 @@ export default async function ProductsPage({
       },
     }),
     prisma.product.count({ where }),
+    prisma.product.findMany({
+      select: {
+        brand: true,
+        name: true,
+      },
+      orderBy: [{ brand: "asc" }, { name: "asc" }],
+    }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
+  const brands = [...new Set(filterProducts.map((product) => product.brand))];
+  const models = [
+    ...new Set(
+      filterProducts
+        .filter((product) =>
+          selectedBrand
+            ? product.brand.toLowerCase() === selectedBrand.toLowerCase()
+            : true,
+        )
+        .map((product) => product.name),
+    ),
+  ];
 
   const totalStock = products.reduce(
     (sum, product) =>
@@ -252,17 +311,24 @@ export default async function ProductsPage({
 
         <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)]">
           <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
-            <ProductsFilters searchQuery={searchQuery} />
+            <ProductsFilters
+              key={`${searchQuery}|${selectedBrand}|${selectedModel}`}
+              searchQuery={searchQuery}
+              selectedBrand={selectedBrand}
+              selectedModel={selectedModel}
+              brands={brands}
+              models={models}
+            />
           </div>
           {products.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-base font-medium text-slate-900">
-                {searchQuery
-                  ? "Nuk u gjet asnje produkt me kete kerkim"
+                {searchQuery || selectedBrand || selectedModel
+                  ? "Nuk u gjet asnje produkt me keto filtra"
                   : "Nuk ka ende produkte te regjistruara"}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                {searchQuery
+                {searchQuery || selectedBrand || selectedModel
                   ? "Provo nje kerkese tjeter ose bej reset per t'i pare te gjitha."
                   : "Shto modelin e pare dhe vazhdo me variantet per te filluar inventarin."}
               </p>
@@ -405,7 +471,10 @@ export default async function ProductsPage({
                       <th className="px-5 py-4 text-right">Veprime</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody
+                    suppressHydrationWarning
+                    className="divide-y divide-slate-100 bg-white"
+                  >
                     {products.map((product) => {
                       const sizes = [
                         ...new Set(
@@ -594,7 +663,12 @@ export default async function ProductsPage({
             <div className="flex gap-2">
               {previousPage ? (
                 <Link
-                  href={buildProductsPageHref(previousPage, searchQuery)}
+                  href={buildProductsPageHref(
+                    previousPage,
+                    searchQuery,
+                    selectedBrand,
+                    selectedModel,
+                  )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
                   Mbrapa
@@ -606,7 +680,12 @@ export default async function ProductsPage({
               )}
               {nextPage ? (
                 <Link
-                  href={buildProductsPageHref(nextPage, searchQuery)}
+                  href={buildProductsPageHref(
+                    nextPage,
+                    searchQuery,
+                    selectedBrand,
+                    selectedModel,
+                  )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
                   Para
