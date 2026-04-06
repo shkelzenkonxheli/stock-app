@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UploadedImage } from "@/app/components/uploaded-image";
 
 type OrderVariant = {
@@ -17,7 +17,8 @@ type OrderVariant = {
 
 type ProductOption = {
   id: number;
-  label: string;
+  name: string;
+  brand: string;
 };
 
 type OrderFormProps = {
@@ -29,9 +30,11 @@ type OrderSource = "INSTAGRAM" | "STORE" | "WHOLESALE";
 
 type OrderItemRow = {
   id: string;
+  brand: string;
   productId: string;
   variantId: string;
   quantity: string;
+  committed: boolean;
 };
 
 const sourceOptions: Array<{ value: OrderSource; label: string }> = [
@@ -43,9 +46,11 @@ const sourceOptions: Array<{ value: OrderSource; label: string }> = [
 function createEmptyRow(): OrderItemRow {
   return {
     id: crypto.randomUUID(),
+    brand: "",
     productId: "",
     variantId: "",
     quantity: "1",
+    committed: false,
   };
 }
 
@@ -53,26 +58,77 @@ function getSourceIcon(source: OrderSource) {
   switch (source) {
     case "INSTAGRAM":
       return (
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-          <rect x="4.25" y="4.25" width="11.5" height="11.5" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="10" cy="10" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-4 w-4"
+        >
+          <rect
+            x="4.25"
+            y="4.25"
+            width="11.5"
+            height="11.5"
+            rx="3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
+          <circle
+            cx="10"
+            cy="10"
+            r="2.75"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
           <circle cx="14" cy="6" r="0.9" fill="currentColor" />
         </svg>
       );
     case "STORE":
       return (
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-          <path d="M4 7.25 5.25 4.5h9.5L16 7.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M4.25 7.25h11.5v7.5H4.25z" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M8 10.25h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-4 w-4"
+        >
+          <path
+            d="M4 7.25 5.25 4.5h9.5L16 7.25"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M4.25 7.25h11.5v7.5H4.25z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M8 10.25h4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
         </svg>
       );
     default:
       return (
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-          <path d="M10 3.25 16 6.5v7L10 16.75 4 13.5v-7l6-3.25Z" stroke="currentColor" strokeWidth="1.5" />
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-4 w-4"
+        >
+          <path
+            d="M10 3.25 16 6.5v7L10 16.75 4 13.5v-7l6-3.25Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
           <path d="M10 3.5v13" stroke="currentColor" strokeWidth="1.5" />
-          <path d="m4.25 6.75 5.75 3.25 5.75-3.25" stroke="currentColor" strokeWidth="1.5" />
+          <path
+            d="m4.25 6.75 5.75 3.25 5.75-3.25"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
         </svg>
       );
   }
@@ -81,15 +137,27 @@ function getSourceIcon(source: OrderSource) {
 export function OrderForm({ action, products }: OrderFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
   const [rows, setRows] = useState<OrderItemRow[]>([createEmptyRow()]);
-  const [variantsByProduct, setVariantsByProduct] = useState<Record<number, OrderVariant[]>>({});
-  const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>({});
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [variantsByProduct, setVariantsByProduct] = useState<
+    Record<number, OrderVariant[]>
+  >({});
+  const [loadingProducts, setLoadingProducts] = useState<
+    Record<number, boolean>
+  >({});
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
+  const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     const productIdsToLoad = [
       ...new Set(
         rows
           .map((row) => Number(row.productId))
-          .filter((productId) => productId > 0 && !variantsByProduct[productId]),
+          .filter(
+            (productId) => productId > 0 && !variantsByProduct[productId],
+          ),
       ),
     ];
 
@@ -122,7 +190,10 @@ export function OrderForm({ action, products }: OrderFormProps) {
           }
         } finally {
           if (!isCancelled) {
-            setLoadingProducts((current) => ({ ...current, [productId]: false }));
+            setLoadingProducts((current) => ({
+              ...current,
+              [productId]: false,
+            }));
           }
         }
       }
@@ -134,6 +205,18 @@ export function OrderForm({ action, products }: OrderFormProps) {
       isCancelled = true;
     };
   }, [rows, variantsByProduct]);
+
+  useEffect(() => {
+    if (Object.keys(rowErrors).length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRowErrors({});
+    }, 3500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [rowErrors]);
 
   const reservedByVariant = useMemo(() => {
     const totals = new Map<number, number>();
@@ -157,10 +240,30 @@ export function OrderForm({ action, products }: OrderFormProps) {
     field: keyof Omit<OrderItemRow, "id">,
     value: string,
   ) => {
+    setRowErrors((current) => {
+      if (!current[rowId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+
     setRows((currentRows) =>
       currentRows.map((row) => {
         if (row.id !== rowId) {
           return row;
+        }
+
+        if (field === "brand") {
+          return {
+            ...row,
+            brand: value,
+            productId: "",
+            variantId: "",
+            committed: false,
+          };
         }
 
         if (field === "productId") {
@@ -168,34 +271,119 @@ export function OrderForm({ action, products }: OrderFormProps) {
             ...row,
             productId: value,
             variantId: "",
+            committed: false,
           };
         }
 
         return {
           ...row,
           [field]: value,
+          committed: false,
         };
       }),
     );
   };
 
-  const addRow = () => {
-    setRows((currentRows) => [...currentRows, createEmptyRow()]);
-  };
-
   const removeRow = (rowId: string) => {
-    setRows((currentRows) => {
-      if (currentRows.length === 1) {
-        return currentRows;
+    setRowErrors((current) => {
+      if (!current[rowId]) {
+        return current;
       }
 
-      return currentRows.filter((row) => row.id !== rowId);
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+
+    setRows((currentRows) => {
+      const nextRows = currentRows.filter((row) => row.id !== rowId);
+      const hasDraft = nextRows.some((row) => !row.committed);
+
+      if (nextRows.length === 0) {
+        return [createEmptyRow()];
+      }
+
+      return hasDraft ? nextRows : [...nextRows, createEmptyRow()];
+    });
+  };
+
+  const commitRow = (rowId: string) => {
+    const rowToCommit = rows.find((row) => row.id === rowId);
+
+    if (
+      !rowToCommit ||
+      !rowToCommit.productId ||
+      !rowToCommit.variantId ||
+      Number(rowToCommit.quantity) <= 0
+    ) {
+      return;
+    }
+
+    const selectedProductId = Number(rowToCommit.productId);
+    const productVariants = selectedProductId
+      ? (variantsByProduct[selectedProductId] ?? [])
+      : [];
+    const currentVariantId = Number(rowToCommit.variantId);
+    const currentQuantity = Number(rowToCommit.quantity) || 0;
+    const reservedElsewhere =
+      (reservedByVariant.get(currentVariantId) ?? 0) - currentQuantity;
+    const selectedVariant = productVariants.find(
+      (variant) => variant.id === currentVariantId,
+    );
+    const availableStock = selectedVariant
+      ? Math.max(selectedVariant.stock - reservedElsewhere, 0)
+      : 0;
+
+    if (!selectedVariant || currentQuantity > availableStock) {
+      setRowErrors((current) => ({
+        ...current,
+        [rowId]: "Nuk ka stok te mjaftueshem per kete sasi.",
+      }));
+      quantityInputRefs.current[rowId]?.focus();
+      quantityInputRefs.current[rowId]?.select();
+      return;
+    }
+
+    setRowErrors((current) => {
+      if (!current[rowId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+
+    setRows((currentRows) => {
+      const alreadyExists = currentRows.some(
+        (row) =>
+          row.id !== rowId &&
+          row.committed &&
+          row.variantId === rowToCommit.variantId,
+      );
+
+      const nextRows = currentRows.map((row) =>
+        row.id === rowId ? createEmptyRow() : row,
+      );
+
+      if (alreadyExists) {
+        return nextRows;
+      }
+
+      return [
+        { ...rowToCommit, committed: true, id: crypto.randomUUID() },
+        ...nextRows,
+      ];
     });
   };
 
   const allLoadedVariants = Object.values(variantsByProduct).flat();
+  const brands = [...new Set(products.map((product) => product.brand))].sort(
+    (a, b) => a.localeCompare(b, "sq"),
+  );
 
   const selectedItems = rows
+    .filter((row) => row.committed)
     .map((row) => {
       const variant = allLoadedVariants.find(
         (item) => item.id === Number(row.variantId),
@@ -206,11 +394,17 @@ export function OrderForm({ action, products }: OrderFormProps) {
       }
 
       return {
+        rowId: row.id,
         ...variant,
         quantity: Number(row.quantity) || 0,
       };
     })
-    .filter((item): item is OrderVariant & { quantity: number } => item !== null);
+    .filter(
+      (item): item is OrderVariant & { rowId: string; quantity: number } =>
+        item !== null,
+    );
+
+  const pendingRows = rows.filter((row) => !row.committed).slice(0, 1);
 
   const subtotal = selectedItems.reduce(
     (sum, item) => sum + item.quantity * item.price,
@@ -218,10 +412,9 @@ export function OrderForm({ action, products }: OrderFormProps) {
   );
   const shipping = 0;
   const grandTotal = subtotal + shipping;
-  const allInStock = selectedItems.every((item) => item.stock >= item.quantity);
-
   const serializedItems = JSON.stringify(
     rows
+      .filter((row) => row.committed)
       .map((row) => ({
         variantId: Number(row.variantId),
         quantity: Number(row.quantity),
@@ -230,17 +423,20 @@ export function OrderForm({ action, products }: OrderFormProps) {
   );
 
   return (
-    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_312px]">
+    <form
+      action={action}
+      className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_312px]"
+    >
       <input type="hidden" name="source" value={source} />
       <input type="hidden" name="items" value={serializedItems} />
 
       <div className="space-y-6">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <section className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Burimi i Porosise
           </p>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
             {sourceOptions.map((option) => {
               const active = source === option.value;
 
@@ -249,7 +445,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                   key={option.value}
                   type="button"
                   onClick={() => setSource(option.value)}
-                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold transition ${
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                     active
                       ? "border-emerald-200 bg-emerald-300/55 text-slate-950"
                       : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -267,34 +463,48 @@ export function OrderForm({ action, products }: OrderFormProps) {
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                  <path d="M4.75 5.5h10.5M6 4v3m8-3v3M4.75 7v8.25h10.5V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M7.5 10.25h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M4.75 5.5h10.5M6 4v3m8-3v3M4.75 7v8.25h10.5V7"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7.5 10.25h5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </div>
               <div>
-                <p className="text-xl font-semibold text-slate-950">Detajet e Produktit</p>
-                <p className="mt-1 text-sm text-slate-500">Zgjidh produktin, variantin dhe sasine.</p>
+                <p className="text-xl font-semibold text-slate-950">
+                  Detajet e Produktit
+                </p>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              <span className="text-base">+</span>
-              Shto rresht tjeter
-            </button>
           </div>
 
           <div className="space-y-4 px-5 py-5">
-            {rows.map((row, index) => {
+            {pendingRows.map((row) => {
               const rowVariantId = Number(row.variantId);
               const rowQuantity = Number(row.quantity) || 0;
               const selectedProductId = Number(row.productId);
+              const brandProducts = row.brand
+                ? products.filter(
+                    (product) =>
+                      product.brand.toLowerCase() === row.brand.toLowerCase(),
+                  )
+                : products;
               const productVariants = selectedProductId
-                ? variantsByProduct[selectedProductId] ?? []
+                ? (variantsByProduct[selectedProductId] ?? [])
                 : [];
               const filteredVariants = productVariants
                 .map((variant) => {
@@ -304,12 +514,21 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
                   return {
                     ...variant,
-                    availableStock: Math.max(variant.stock - reservedElsewhere, 0),
+                    availableStock: Math.max(
+                      variant.stock - reservedElsewhere,
+                      0,
+                    ),
                   };
                 })
                 .filter(
                   (variant) =>
                     variant.availableStock > 0 || variant.id === rowVariantId,
+                )
+                .sort(
+                  (a, b) =>
+                    a.color.localeCompare(b.color, "sq", {
+                      sensitivity: "base",
+                    }) || a.size.localeCompare(b.size, "sq", { numeric: true }),
                 );
               const selectedVariant = filteredVariants.find(
                 (variant) => variant.id === Number(row.variantId),
@@ -319,152 +538,249 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 : false;
 
               return (
-                <div
-                  key={row.id}
-                  className="rounded-[24px] border border-slate-200 bg-slate-50/50 px-4 py-4"
-                >
-                  <div className="grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)] lg:items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        {selectedVariant?.imagePath ? (
-                          <UploadedImage
-                            src={selectedVariant.imagePath}
-                            alt={`${selectedVariant.productLabel} ${selectedVariant.color}`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-                            IMG
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-6 text-slate-950">
-                          {selectedVariant?.productLabel || `Artikulli ${index + 1}`}
-                        </p>
-                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                          {selectedVariant
-                            ? `Nr ${selectedVariant.size} | ${selectedVariant.color}`
-                            : "Zgjidh produkt dhe variant"}
-                        </p>
+                <div key={row.id} className="rounded-[24px] px-4 py-4">
+                  <div className="grid gap-3 md:grid-cols-[minmax(130px,0.75fr)_minmax(150px,0.95fr)_minmax(210px,1.15fr)_72px_110px_28px] md:items-end">
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Brandi
+                      </label>
+                      <select
+                        value={row.brand}
+                        onChange={(event) =>
+                          updateRow(row.id, "brand", event.target.value)
+                        }
+                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                      >
+                        <option value="">Zgjidh brandin</option>
+                        {brands.map((brand) => (
+                          <option key={brand} value={brand}>
+                            {brand}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Produkti
+                      </label>
+                      <select
+                        value={row.productId}
+                        onChange={(event) =>
+                          updateRow(row.id, "productId", event.target.value)
+                        }
+                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                      >
+                        <option value="">Zgjidh produktin</option>
+                        {brandProducts.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Varianti
+                      </label>
+                      <select
+                        value={row.variantId}
+                        onChange={(event) =>
+                          updateRow(row.id, "variantId", event.target.value)
+                        }
+                        disabled={!row.productId || isLoadingVariants}
+                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                      >
+                        <option value="">
+                          {!row.productId
+                            ? "Zgjidh variantin"
+                            : isLoadingVariants
+                              ? "Duke ngarkuar..."
+                              : filteredVariants.length === 0
+                                ? "Pa stok"
+                                : "Zgjidh variantin"}
+                        </option>
+                        {filteredVariants.map((variant) => (
+                          <option key={variant.id} value={variant.id}>
+                            Masa {variant.size} | {variant.color} | stok{" "}
+                            {variant.availableStock}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Sasia
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={row.quantity}
+                        onChange={(event) =>
+                          updateRow(row.id, "quantity", event.target.value)
+                        }
+                        max={selectedVariant?.availableStock ?? undefined}
+                        ref={(element) => {
+                          quantityInputRefs.current[row.id] = element;
+                        }}
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Cmimi
+                      </label>
+                      <div className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-semibold text-slate-900">
+                        {selectedVariant
+                          ? `${selectedVariant.price.toFixed(2)} EUR`
+                          : "-"}
                       </div>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-[minmax(150px,0.95fr)_minmax(210px,1.15fr)_72px_110px_28px] md:items-end">
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          Produkti
-                        </label>
-                        <select
-                          value={row.productId}
-                          onChange={(event) =>
-                            updateRow(row.id, "productId", event.target.value)
-                          }
-                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    <div className="flex h-11 items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => commitRow(row.id)}
+                        disabled={!row.variantId}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                        aria-label="Shto ne liste"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          className="h-4 w-4"
                         >
-                          <option value="">Zgjidh produktin</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          Varianti
-                        </label>
-                        <select
-                          value={row.variantId}
-                          onChange={(event) =>
-                            updateRow(row.id, "variantId", event.target.value)
-                          }
-                          disabled={!row.productId || isLoadingVariants}
-                          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
-                        >
-                          <option value="">
-                            {!row.productId
-                              ? "Zgjidh variantin"
-                              : isLoadingVariants
-                                ? "Duke ngarkuar..."
-                                : filteredVariants.length === 0
-                                  ? "Pa stok"
-                                  : "Zgjidh variantin"}
-                          </option>
-                          {filteredVariants.map((variant) => (
-                            <option key={variant.id} value={variant.id}>
-                              Masa {variant.size} | {variant.color} | stok {variant.availableStock}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          Sasia
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={row.quantity}
-                          onChange={(event) =>
-                            updateRow(row.id, "quantity", event.target.value)
-                          }
-                          max={selectedVariant?.availableStock ?? undefined}
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          Cmimi
-                        </label>
-                        <div className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-semibold text-slate-900">
-                          {selectedVariant ? `${selectedVariant.price.toFixed(2)} EUR` : "-"}
-                        </div>
-                      </div>
-
-                      <div className="flex h-11 items-center justify-center">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(row.id)}
-                          disabled={rows.length === 1}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label={`Hiq artikullin ${index + 1}`}
-                        >
-                          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                            <path
-                              d="M5.75 6.5h8.5M8 6.5V5.25A1.25 1.25 0 0 1 9.25 4h1.5A1.25 1.25 0 0 1 12 5.25V6.5M7 8.25v5.25M10 8.25v5.25M13 8.25v5.25M6.5 6.5 7 15a1 1 0 0 0 1 .94h4a1 1 0 0 0 1-.94l.5-8.5"
-                              stroke="currentColor"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                      </div>
+                          <path
+                            d="M10 4v12M4 10h12"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
                     </div>
                   </div>
+
+                  {rowErrors[row.id] ? (
+                    <p className="mt-3 text-sm font-medium text-rose-600">
+                      {rowErrors[row.id]}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
+
+            {selectedItems.length > 0 ? (
+              <div className="space-y-3 border-t border-slate-200 pt-4">
+                {selectedItems.map((item) => (
+                  <div
+                    key={item.rowId}
+                    className="flex items-center justify-between gap-4 rounded-[20px] border border-slate-200 bg-white px-4 py-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          item.imagePath
+                            ? setPreviewImage({
+                                src: item.imagePath,
+                                alt: `${item.productLabel} ${item.color}`,
+                              })
+                            : undefined
+                        }
+                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                      >
+                        {item.imagePath ? (
+                          <UploadedImage
+                            src={item.imagePath}
+                            alt={`${item.productLabel} ${item.color}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                            IMG
+                          </span>
+                        )}
+                      </button>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950">
+                          {item.productLabel}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Nr {item.size} / {item.color}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {item.price.toFixed(2)} EUR
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                        x{item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(item.rowId)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-rose-500 transition hover:bg-rose-50"
+                        aria-label={`Hiq ${item.productLabel}`}
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          className="h-4 w-4"
+                        >
+                          <path
+                            d="M6 6l8 8M14 6l-8 8"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                <path d="M10 5.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5ZM4.25 17.25v-.5A3.75 3.75 0 0 1 8 13h4a3.75 3.75 0 0 1 3.75 3.75v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M10 5.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5ZM4.25 17.25v-.5A3.75 3.75 0 0 1 8 13h4a3.75 3.75 0 0 1 3.75 3.75v.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
-            <p className="text-xl font-semibold text-slate-950">Informacioni i Klientit</p>
+            <p className="text-xl font-semibold text-slate-950">
+              Informacioni i Klientit
+            </p>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <div>
-              <label htmlFor="customerName" className="mb-2 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="customerName"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
                 Emri i Klientit
               </label>
               <input
@@ -477,7 +793,10 @@ export function OrderForm({ action, products }: OrderFormProps) {
             </div>
 
             <div>
-              <label htmlFor="phone" className="mb-2 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="phone"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
                 Telefoni
               </label>
               <input
@@ -490,7 +809,10 @@ export function OrderForm({ action, products }: OrderFormProps) {
             </div>
 
             <div>
-              <label htmlFor="instagram" className="mb-2 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="instagram"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
                 Username / Referenca
               </label>
               <input
@@ -509,8 +831,18 @@ export function OrderForm({ action, products }: OrderFormProps) {
         <section className="rounded-[28px] bg-[#0f256c] px-5 py-6 text-white shadow-[0_22px_40px_rgba(15,37,108,0.2)]">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                <path d="M5 5.75h10M5 10h10M5 14.25h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M5 5.75h10M5 10h10M5 14.25h7"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                />
               </svg>
             </div>
             <p className="text-2xl font-semibold">Përmbledhja</p>
@@ -518,7 +850,9 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
           <dl className="mt-6 space-y-4 text-sm">
             <div className="flex items-center justify-between gap-4">
-              <dt className="text-white/70">Produkte ({selectedItems.length})</dt>
+              <dt className="text-white/70">
+                Produkte ({selectedItems.length})
+              </dt>
               <dd className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold">
                 {selectedItems.length} items
               </dd>
@@ -547,49 +881,21 @@ export function OrderForm({ action, products }: OrderFormProps) {
             className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(16,185,129,0.25)] transition hover:bg-emerald-400"
           >
             Krijo Porosine
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-              <path d="M4.75 10h10.5M11 6.25 14.75 10 11 13.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="none"
+              className="h-4 w-4"
+            >
+              <path
+                d="M4.75 10h10.5M11 6.25 14.75 10 11 13.75"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
-        </section>
-
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                <path d="M4.75 5.75h10.5M4.75 9.5h10.5M4.75 13.25h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-              </svg>
-            </div>
-            <p className="text-xl font-semibold text-slate-950">Shënime</p>
-          </div>
-
-          <textarea
-            id="notes"
-            name="notes"
-            rows={5}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
-            placeholder="Shto ndonje detaj specifik per dergesen..."
-          />
-        </section>
-
-        <section className="rounded-[28px] border border-emerald-200 bg-emerald-950 p-5 text-emerald-50 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-emerald-950">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                <path d="M10 3.75 5.75 10h3l-.75 6.25L14.25 10h-3l.75-6.25Z" fill="currentColor" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold">Gjendja e Inventarit</p>
-              <p className="mt-2 text-sm leading-6 text-emerald-100/80">
-                Artikujt e zgjedhur jane te disponueshem. Pasi te krijohet porosia,
-                gjendja do te perditesohet automatikisht.
-              </p>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
-                {allInStock ? "Gati per ruajtje" : "Kontrollo sasine"}
-              </p>
-            </div>
-          </div>
         </section>
 
         <Link
@@ -599,6 +905,46 @@ export function OrderForm({ action, products }: OrderFormProps) {
           Kthehu te porosite
         </Link>
       </aside>
+
+      {previewImage ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/75 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-xl overflow-hidden rounded-[28px] bg-white p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/80 text-white transition hover:bg-slate-950"
+              aria-label="Mbyll foton"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                className="h-4 w-4"
+              >
+                <path
+                  d="M6 6l8 8M14 6l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+            <div className="overflow-hidden rounded-[22px]">
+              <UploadedImage
+                src={previewImage.src}
+                alt={previewImage.alt}
+                className="h-auto max-h-[80vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }

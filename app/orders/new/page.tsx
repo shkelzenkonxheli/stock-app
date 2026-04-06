@@ -196,11 +196,11 @@ export default async function NewOrderPage({
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
           <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
               Krijo Porosi te Re
             </h1>
-            <p className="mt-3 text-base text-slate-600">
-              Plotesoni te dhenat per te krijuar nje fature te re shitjeje.
+            <p className="mt-2 text-sm text-slate-500">
+              Zgjidh produktet dhe ploteso te dhenat e klientit.
             </p>
           </div>
         </section>
@@ -217,7 +217,8 @@ export default async function NewOrderPage({
           action={createOrder}
           products={products.map((product) => ({
             id: product.id,
-            label: `${product.name} | ${product.brand}`,
+            name: product.name,
+            brand: product.brand,
           }))}
         />
       </div>

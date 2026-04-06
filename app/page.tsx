@@ -189,7 +189,7 @@ export default async function Home() {
     {
       title: "Shto Porosi",
       subtitle: "Krijoni shitje te reja dhe porosi per klientet tuaj.",
-      href: "/orders/new",
+      href: "/orders/create",
       accent: "bg-[linear-gradient(135deg,#db2777_0%,#f43f5e_100%)]",
       pill: "Sinkronizim ne kohe reale",
       visible: canCreateOrders,

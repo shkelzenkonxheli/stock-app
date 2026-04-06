@@ -54,6 +54,7 @@ function createRow(productId: number, variantId: number): QuickOrderRow {
 export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
   const [rows, setRows] = useState<QuickOrderRow[]>([]);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [variantsByProduct, setVariantsByProduct] = useState<
     Record<number, OrderVariant[]>
   >({});
@@ -110,6 +111,18 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
       isCancelled = true;
     };
   }, [selectedProductId, variantsByProduct]);
+
+  useEffect(() => {
+    if (Object.keys(rowErrors).length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRowErrors({});
+    }, 3500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [rowErrors]);
 
   const brands = useMemo(
     () =>
@@ -231,6 +244,27 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
       );
 
       if (existingRow) {
+        const variant = currentVariants.find((item) => item.id === variantId);
+        const currentQuantity = Number(existingRow.quantity) || 0;
+
+        if (!variant || currentQuantity >= variant.stock) {
+          setRowErrors((current) => ({
+            ...current,
+            [existingRow.id]: "Nuk ka stok te mjaftueshem per kete sasi.",
+          }));
+          return currentRows;
+        }
+
+        setRowErrors((current) => {
+          if (!current[existingRow.id]) {
+            return current;
+          }
+
+          const next = { ...current };
+          delete next[existingRow.id];
+          return next;
+        });
+
         return currentRows.map((row) =>
           row.id === existingRow.id
             ? {
@@ -248,13 +282,41 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   };
 
   const changeQuantity = (rowId: string, delta: number) => {
+    const selectedRow = rows.find((row) => row.id === rowId);
+
+    if (!selectedRow) {
+      return;
+    }
+
+    const variant = Object.values(variantsByProduct)
+      .flat()
+      .find((item) => item.id === Number(selectedRow.variantId));
+    const currentQuantity = Number(selectedRow.quantity) || 1;
+    const nextQuantity = Math.max(1, currentQuantity + delta);
+
+    if (delta > 0 && variant && nextQuantity > variant.stock) {
+      setRowErrors((current) => ({
+        ...current,
+        [rowId]: "Nuk ka stok te mjaftueshem per kete sasi.",
+      }));
+      return;
+    }
+
+    setRowErrors((current) => {
+      if (!current[rowId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+
     setRows((currentRows) =>
       currentRows.map((row) => {
         if (row.id !== rowId) {
           return row;
         }
-
-        const nextQuantity = Math.max(1, (Number(row.quantity) || 1) + delta);
 
         return {
           ...row,
@@ -265,6 +327,16 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   };
 
   const removeRow = (rowId: string) => {
+    setRowErrors((current) => {
+      if (!current[rowId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+
     setRows((currentRows) => currentRows.filter((row) => row.id !== rowId));
   };
 
@@ -461,6 +533,14 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                       ×
                     </button>
                   </div>
+
+                  {rowErrors[row.id] ? (
+                    <div className="md:col-span-5">
+                      <p className="text-sm font-medium text-rose-600">
+                        {rowErrors[row.id]}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}
