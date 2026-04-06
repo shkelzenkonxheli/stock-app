@@ -6,7 +6,8 @@ import { getStockTone } from "@/lib/inventory";
 
 type ProductOption = {
   id: number;
-  label: string;
+  name: string;
+  brand: string;
 };
 
 type InventoryVariant = {
@@ -31,6 +32,7 @@ export function IncomingStockForm({
 }: IncomingStockFormProps) {
   const [productId, setProductId] = useState("");
   const [reason, setReason] = useState("INCOMING_STOCK");
+  const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,6 +112,22 @@ export function IncomingStockForm({
     [variants],
   );
 
+  const brands = useMemo(
+    () =>
+      [...new Set(products.map((product) => product.brand))].sort((a, b) =>
+        a.localeCompare(b, "sq", { sensitivity: "base" }),
+      ),
+    [products],
+  );
+
+  const filteredProducts = useMemo(
+    () =>
+      selectedBrand
+        ? products.filter((product) => product.brand === selectedBrand)
+        : products,
+    [products, selectedBrand],
+  );
+
   const visibleVariants = useMemo(
     () =>
       selectedColor
@@ -158,7 +176,7 @@ export function IncomingStockForm({
       <input type="hidden" name="adjustments" value={serializedAdjustments} />
 
       <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-4">
           <label className="space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Arsyeja
@@ -177,6 +195,28 @@ export function IncomingStockForm({
 
           <label className="space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Brandi
+            </span>
+            <select
+              id="brandFilter"
+              value={selectedBrand}
+              onChange={(event) => {
+                setSelectedBrand(event.target.value);
+                setProductId("");
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+            >
+              <option value="">Te gjitha brandet</option>
+              {brands.map((brand, index) => (
+                <option key={`${brand}-${index}`} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Produkti
             </span>
             <select
@@ -186,9 +226,9 @@ export function IncomingStockForm({
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
             >
               <option value="">Zgjidh produktin</option>
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.label}
+                  {product.name}
                 </option>
               ))}
             </select>

@@ -176,8 +176,8 @@ export default async function IncomingStockPage({
       },
       select: {
         id: true,
-        name: true,
         brand: true,
+        name: true,
       },
       orderBy: [{ name: "asc" }, { brand: "asc" }],
     }),
@@ -260,7 +260,8 @@ export default async function IncomingStockPage({
           action={createIncomingStock}
           products={products.map((product) => ({
             id: product.id,
-            label: `${product.name} | ${product.brand}`,
+            name: product.name,
+            brand: product.brand,
           }))}
         />
 
