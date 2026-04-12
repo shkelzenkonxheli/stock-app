@@ -3,6 +3,8 @@ import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 
+const BUSINESS_TIME_ZONE = "Europe/Belgrade";
+
 type ActionTile = {
   title: string;
   subtitle: string;
@@ -58,6 +60,63 @@ function ActionTile({
   );
 }
 
+function getDateStringInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  return formatter.format(date);
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  ) as Record<string, string>;
+
+  const zonedTimeAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  );
+
+  return zonedTimeAsUtc - date.getTime();
+}
+
+function getTimeZoneDayBounds(dateString: string, timeZone: string) {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const startApprox = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const endApprox = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0));
+
+  const startOffset = getTimeZoneOffsetMs(startApprox, timeZone);
+  const endOffset = getTimeZoneOffsetMs(endApprox, timeZone);
+
+  return {
+    start: new Date(startApprox.getTime() - startOffset),
+    end: new Date(endApprox.getTime() - endOffset),
+  };
+}
+
 export default async function Home() {
   const currentUser = await requireUser();
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
@@ -69,10 +128,11 @@ export default async function Home() {
   ]);
   const canManageUsers = hasRole(currentUser, ["SUPER_ADMIN"]);
 
-  const today = new Date();
-  const dateFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const dateTo = new Date(dateFrom);
-  dateTo.setDate(dateTo.getDate() + 1);
+  const today = getDateStringInTimeZone(new Date(), BUSINESS_TIME_ZONE);
+  const { start: dateFrom, end: dateTo } = getTimeZoneDayBounds(
+    today,
+    BUSINESS_TIME_ZONE,
+  );
 
   const [
     totalProducts,
