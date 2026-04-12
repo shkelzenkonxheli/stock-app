@@ -5,14 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type OrdersFiltersProps = {
   searchQuery: string;
-  selectedStatus: string;
   selectedSource: string;
   selectedDate: string;
 };
 
 export function OrdersFilters({
   searchQuery,
-  selectedStatus,
   selectedSource,
   selectedDate,
 }: OrdersFiltersProps) {
@@ -21,17 +19,11 @@ export function OrdersFilters({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(searchQuery);
-  const [status, setStatus] = useState(selectedStatus);
   const [source, setSource] = useState(selectedSource);
   const [date, setDate] = useState(selectedDate);
 
   const updateFilters = useCallback(
-    (
-      nextQuery: string,
-      nextStatus: string,
-      nextSource: string,
-      nextDate: string,
-    ) => {
+    (nextQuery: string, nextSource: string, nextDate: string) => {
       const params = new URLSearchParams(searchParams.toString());
 
       params.delete("page");
@@ -40,12 +32,6 @@ export function OrdersFilters({
         params.set("q", nextQuery.trim());
       } else {
         params.delete("q");
-      }
-
-      if (nextStatus) {
-        params.set("status", nextStatus);
-      } else {
-        params.delete("status");
       }
 
       if (nextSource) {
@@ -76,10 +62,6 @@ export function OrdersFilters({
   }, [searchQuery]);
 
   useEffect(() => {
-    setStatus(selectedStatus);
-  }, [selectedStatus]);
-
-  useEffect(() => {
     setSource(selectedSource);
   }, [selectedSource]);
 
@@ -91,49 +73,34 @@ export function OrdersFilters({
     const timeout = setTimeout(() => {
       if (
         query === searchQuery &&
-        status === selectedStatus &&
         source === selectedSource &&
         date === selectedDate
       ) {
         return;
       }
 
-      updateFilters(query, status, source, date);
+      updateFilters(query, source, date);
     }, 250);
 
     return () => clearTimeout(timeout);
   }, [
     query,
-    status,
     source,
     date,
     searchQuery,
-    selectedStatus,
     selectedSource,
     selectedDate,
     updateFilters,
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[180px_180px_180px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[180px_180px_minmax(0,1fr)]">
       <input
         type="date"
         value={date}
         onChange={(event) => setDate(event.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
       />
-
-      <select
-        value={status}
-        onChange={(event) => setStatus(event.target.value)}
-        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
-      >
-        <option value="">Statusi: Te gjitha</option>
-        <option value="NEW">NEW</option>
-        <option value="READY">READY</option>
-        <option value="DONE">DONE</option>
-        <option value="CANCELED">CANCELED</option>
-      </select>
 
       <select
         value={source}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
+import { UploadedImage } from "@/app/components/uploaded-image";
 import { OrderDetailsModal } from "./order-details-modal";
 
 type OrderStatusValue = "NEW" | "READY" | "DONE" | "CANCELED";
@@ -35,24 +36,20 @@ type OrderSummary = {
 
 type OrdersManagerProps = {
   orders: OrderSummary[];
-  canManageStatuses: boolean;
   canDeleteOrders: boolean;
   sourceLabels: Record<OrderSourceValue, string>;
   sourceStyles: Record<OrderSourceValue, string>;
   statusStyles: Record<OrderStatusValue, string>;
-  updateOrderStatusAction: (formData: FormData) => void | Promise<void>;
   deleteOrderAction: (formData: FormData) => void | Promise<void>;
   bulkDeleteOrdersAction: (formData: FormData) => void | Promise<void>;
 };
 
 export function OrdersManager({
   orders,
-  canManageStatuses,
   canDeleteOrders,
   sourceLabels,
   sourceStyles,
   statusStyles,
-  updateOrderStatusAction,
   deleteOrderAction,
   bulkDeleteOrdersAction,
 }: OrdersManagerProps) {
@@ -82,26 +79,6 @@ export function OrdersManager({
 
   const toggleAll = () => {
     setSelectedIds(allSelected ? [] : deletableOrderIds);
-  };
-
-  const getCustomerInitials = (customerName: string) =>
-    customerName
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join("");
-
-  const getAvatarTone = (orderId: number) => {
-    const tones = [
-      "bg-violet-100 text-violet-700",
-      "bg-sky-100 text-sky-700",
-      "bg-emerald-100 text-emerald-700",
-      "bg-rose-100 text-rose-700",
-      "bg-amber-100 text-amber-700",
-    ];
-
-    return tones[orderId % tones.length];
   };
 
   const getSourceIcon = (source: OrderSourceValue) => {
@@ -147,70 +124,6 @@ export function OrdersManager({
         items={order.items}
       />
 
-      {canManageStatuses && order.status === "NEW" ? (
-        <>
-          <form action={updateOrderStatusAction}>
-            <input type="hidden" name="orderId" value={order.id} />
-            <input type="hidden" name="nextStatus" value="READY" />
-            <button
-              type="submit"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
-              aria-label={`Kalo porosine ${order.id} ne READY`}
-            >
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                <path d="m4.5 10 3.25 3.25L15.5 5.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </form>
-          <ConfirmActionForm
-            action={updateOrderStatusAction}
-            hiddenFields={[
-              { name: "orderId", value: order.id },
-              { name: "nextStatus", value: "CANCELED" },
-            ]}
-            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
-            buttonLabel="Cancel"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-              <path d="M6 6 14 14M14 6l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </ConfirmActionForm>
-        </>
-      ) : null}
-
-      {canManageStatuses && order.status === "READY" ? (
-        <>
-          <form action={updateOrderStatusAction}>
-            <input type="hidden" name="orderId" value={order.id} />
-            <input type="hidden" name="nextStatus" value="DONE" />
-            <button
-              type="submit"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-              aria-label={`Mbyll porosine ${order.id}`}
-            >
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                <path d="m4.5 10 3.25 3.25L15.5 5.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </form>
-          <ConfirmActionForm
-            action={updateOrderStatusAction}
-            hiddenFields={[
-              { name: "orderId", value: order.id },
-              { name: "nextStatus", value: "CANCELED" },
-            ]}
-            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
-            buttonLabel="Cancel"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-              <path d="M6 6 14 14M14 6l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </ConfirmActionForm>
-        </>
-      ) : null}
-
       {canDeleteOrders ? (
         <ConfirmActionForm
           action={deleteOrderAction}
@@ -243,68 +156,6 @@ export function OrdersManager({
         notes={order.notes}
         items={order.items}
       />
-
-      {canManageStatuses && order.status === "NEW" ? (
-        <>
-          <form action={updateOrderStatusAction}>
-            <input type="hidden" name="orderId" value={order.id} />
-            <input type="hidden" name="nextStatus" value="READY" />
-            <button
-              type="submit"
-              className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
-            >
-              Ready
-            </button>
-          </form>
-          <ConfirmActionForm
-            action={updateOrderStatusAction}
-            hiddenFields={[
-              { name: "orderId", value: order.id },
-              { name: "nextStatus", value: "CANCELED" },
-            ]}
-            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
-            buttonLabel="Cancel"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
-          />
-        </>
-      ) : null}
-
-      {canManageStatuses && order.status === "READY" ? (
-        <>
-          <form action={updateOrderStatusAction}>
-            <input type="hidden" name="orderId" value={order.id} />
-            <input type="hidden" name="nextStatus" value="DONE" />
-            <button
-              type="submit"
-              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-            >
-              Done
-            </button>
-          </form>
-          <ConfirmActionForm
-            action={updateOrderStatusAction}
-            hiddenFields={[
-              { name: "orderId", value: order.id },
-              { name: "nextStatus", value: "CANCELED" },
-            ]}
-            confirmMessage="A je i sigurt qe don ta anulosh kete porosi?"
-            buttonLabel="Cancel"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
-          />
-        </>
-      ) : null}
-
-      {canManageStatuses && order.status === "DONE" ? (
-        <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Mbyllur
-        </span>
-      ) : null}
-
-      {canManageStatuses && order.status === "CANCELED" ? (
-        <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          E anuluar
-        </span>
-      ) : null}
 
       {canDeleteOrders ? (
         <ConfirmActionForm
@@ -358,11 +209,26 @@ export function OrdersManager({
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
                   />
                 ) : null}
-                <div>
-                  <h2 className="font-semibold text-slate-950">
-                    {order.customerName}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600">{order.phone}</p>
+                <div className="flex items-start gap-3">
+                  <div className="h-12 w-12 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                    {order.items[0]?.imagePath ? (
+                      <UploadedImage
+                        src={order.items[0].imagePath}
+                        alt={order.items[0].name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-slate-950">
+                      {order.items[0]?.brand} {order.items[0]?.name}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {order.items[0]
+                        ? `${order.items[0].color} / Nr ${order.items[0].size}`
+                        : "Pa variant"}
+                    </p>
+                  </div>
                 </div>
               </div>
               <span
@@ -372,33 +238,14 @@ export function OrdersManager({
               </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Artikuj
-                </p>
-                <p className="mt-1 text-lg font-semibold text-slate-950">
-                  {order.itemsCount}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-600">
-                  Cope
-                </p>
-                <p className="mt-1 text-lg font-semibold text-emerald-700">
-                  {order.totalQuantity}
-                </p>
-              </div>
-            </div>
-
             <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="inline-flex min-w-8 items-center justify-center rounded-xl bg-slate-100 px-2.5 py-1.5 text-sm font-semibold text-slate-700">
+                {order.totalQuantity} cope
+              </span>
               <span
                 className={`inline-flex rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${sourceStyles[order.source]}`}
               >
                 {sourceLabels[order.source]}
-              </span>
-              <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
-                {order.instagram || "Pa reference"}
               </span>
               <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
                 <span className="block">{order.createdAtDateLabel}</span>
@@ -422,11 +269,9 @@ export function OrdersManager({
               {canDeleteOrders ? (
                 <th className="px-5 py-4 text-center">Select</th>
               ) : null}
-              <th className="px-5 py-4">Klienti</th>
-              <th className="px-5 py-4">Artikuj</th>
+              <th className="px-5 py-4">Patika</th>
               <th className="px-5 py-4 text-center">Cope</th>
               <th className="px-5 py-4">Burimi</th>
-              <th className="px-5 py-4">Referenca</th>
               <th className="px-5 py-4">Statusi</th>
               <th className="px-5 py-4">Data</th>
               <th className="px-5 py-4 text-right">Veprime</th>
@@ -452,29 +297,25 @@ export function OrdersManager({
                 ) : null}
                 <td className="px-5 py-4">
                   <div className="flex items-start gap-3">
-                    <span
-                      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getAvatarTone(order.id)}`}
-                    >
-                      {getCustomerInitials(order.customerName)}
-                    </span>
+                    <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      {order.items[0]?.imagePath ? (
+                        <UploadedImage
+                          src={order.items[0].imagePath}
+                          alt={order.items[0].name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
                     <div>
                       <p className="font-semibold text-slate-950">
-                        {order.customerName}
+                        {order.items[0]?.brand} {order.items[0]?.name}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {order.phone}
+                        {order.items[0]
+                          ? `${order.items[0].color} / Nr ${order.items[0].size}`
+                          : "Pa variant"}
                       </p>
                     </div>
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <div>
-                    <p className="font-semibold text-slate-950">
-                      {order.items[0]?.name || "-"}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {order.itemsCount} {order.itemsCount === 1 ? "artikull" : "artikuj"}
-                    </p>
                   </div>
                 </td>
                 <td className="px-5 py-4 text-center">
@@ -487,13 +328,6 @@ export function OrdersManager({
                     <span className="text-slate-400">{getSourceIcon(order.source)}</span>
                     <span className="text-sm font-medium">{sourceLabels[order.source]}</span>
                   </div>
-                </td>
-                <td className="px-5 py-4 text-slate-500">
-                  {order.instagram ? (
-                    <span className="text-sm font-medium text-slate-500">#{order.instagram}</span>
-                  ) : (
-                    "-"
-                  )}
                 </td>
                 <td className="px-5 py-4">
                   <span

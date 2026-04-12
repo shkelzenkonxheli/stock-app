@@ -106,6 +106,7 @@ async function createOrder(formData: FormData) {
         instagram: instagram || null,
         source,
         notes: notes || null,
+        status: "DONE",
         quantity: totalQuantity,
         variantId: primaryVariantId,
       },

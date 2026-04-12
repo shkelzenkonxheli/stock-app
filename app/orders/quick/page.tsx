@@ -120,6 +120,7 @@ async function createQuickOrders(formData: FormData) {
           phone: "-",
           instagram: null,
           source,
+          status: "DONE",
           quantity: row.quantity,
           variantId: row.variantId,
           items: {

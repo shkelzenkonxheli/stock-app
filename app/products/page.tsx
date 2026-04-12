@@ -2,11 +2,11 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
-import { UploadedImage } from "@/app/components/uploaded-image";
 import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD, getStockTone } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 import { ProductsFilters } from "./products-filters";
+import { ProductStockQuickView } from "./product-stock-quick-view";
 
 const PAGE_SIZE = 20;
 
@@ -122,23 +122,59 @@ export default async function ProductsPage({
   const currentPage = Math.max(1, Number(resolvedSearchParams?.page) || 1);
   const skip = (currentPage - 1) * PAGE_SIZE;
   const filters: Prisma.ProductWhereInput[] = [];
+  const searchTokens = searchQuery
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
 
-  if (searchQuery) {
+  if (searchTokens.length > 0) {
     filters.push({
-      OR: [
-        {
-          name: {
-            contains: searchQuery,
-            mode: "insensitive",
+      AND: searchTokens.map((token) => ({
+        OR: [
+          {
+            name: {
+              contains: token,
+              mode: "insensitive",
+            },
           },
-        },
-        {
-          brand: {
-            contains: searchQuery,
-            mode: "insensitive",
+          {
+            brand: {
+              contains: token,
+              mode: "insensitive",
+            },
           },
-        },
-      ],
+          {
+            variants: {
+              some: {
+                color: {
+                  contains: token,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+          {
+            variants: {
+              some: {
+                size: {
+                  contains: token,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+          {
+            variants: {
+              some: {
+                sku: {
+                  contains: token,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+        ],
+      })),
     });
   }
 
@@ -210,13 +246,9 @@ export default async function ProductsPage({
   const brands = [...new Set(filterProducts.map((product) => product.brand))];
   const models = [
     ...new Set(
-      filterProducts
-        .filter((product) =>
-          selectedBrand
-            ? product.brand.toLowerCase() === selectedBrand.toLowerCase()
-            : true,
-        )
-        .map((product) => product.name),
+      filterProducts.map(
+        (product) => `${product.brand.toLowerCase()}::${product.name}`,
+      ),
     ),
   ];
   const totalPairs = stockTotals.reduce((sum, variant) => sum + variant.stock, 0);
@@ -314,6 +346,9 @@ export default async function ProductsPage({
                     prices.length > 0 ? Math.min(...prices) : null;
                   const maxPrice =
                     prices.length > 0 ? Math.max(...prices) : null;
+                  const previewVariant =
+                    product.variants.find((variant) => variant.imagePath) ??
+                    product.variants[0];
 
                   return (
                     <article
@@ -321,13 +356,29 @@ export default async function ProductsPage({
                       className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h2 className="text-base font-semibold text-slate-950">
-                            {product.name}
-                          </h2>
-                          <p className="mt-1 text-sm text-slate-600">
-                            {product.brand}
-                          </p>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                            <ProductStockQuickView
+                              productName={product.name}
+                              productBrand={product.brand}
+                              imagePath={previewVariant?.imagePath ?? null}
+                              variants={product.variants.map((variant) => ({
+                                size: variant.size,
+                                color: variant.color,
+                                imagePath: variant.imagePath,
+                                stock: variant.stock,
+                              }))}
+                              className="h-full w-full"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="text-base font-semibold text-slate-950">
+                              {product.name}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {product.brand}
+                            </p>
+                          </div>
                         </div>
                         <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                           {product.variants.length} var
@@ -376,7 +427,19 @@ export default async function ProductsPage({
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                        <ProductStockQuickView
+                          productName={product.name}
+                          productBrand={product.brand}
+                          imagePath={previewVariant?.imagePath ?? null}
+                          variants={product.variants.map((variant) => ({
+                            size: variant.size,
+                            color: variant.color,
+                            imagePath: variant.imagePath,
+                            stock: variant.stock,
+                          }))}
+                          showImageButton={false}
+                        />
                         <Link
                           href={`/products/${product.id}`}
                           className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -457,17 +520,18 @@ export default async function ProductsPage({
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                                {previewVariant?.imagePath ? (
-                                  <UploadedImage
-                                    src={previewVariant.imagePath}
-                                    alt={product.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-400">
-                                    IMG
-                                  </div>
-                                )}
+                                <ProductStockQuickView
+                                  productName={product.name}
+                                  productBrand={product.brand}
+                                  imagePath={previewVariant?.imagePath ?? null}
+                                  variants={product.variants.map((variant) => ({
+                                    size: variant.size,
+                                    color: variant.color,
+                                    imagePath: variant.imagePath,
+                                    stock: variant.stock,
+                                  }))}
+                                  className="h-full w-full"
+                                />
                               </div>
                               <div>
                                 <p className="font-semibold text-slate-950">
@@ -546,6 +610,18 @@ export default async function ProductsPage({
                               >
                                 Menaxho
                               </Link>
+                              <ProductStockQuickView
+                                productName={product.name}
+                                productBrand={product.brand}
+                                imagePath={previewVariant?.imagePath ?? null}
+                                variants={product.variants.map((variant) => ({
+                                  size: variant.size,
+                                  color: variant.color,
+                                  imagePath: variant.imagePath,
+                                  stock: variant.stock,
+                                }))}
+                                showImageButton={false}
+                              />
                               {canManageInventory ? (
                                 <Link
                                   href={`/products/${product.id}/edit`}

@@ -12,19 +12,16 @@ type OrdersPageProps = {
   searchParams?: Promise<{
     page?: string;
     q?: string;
-    status?: string;
     source?: string;
     date?: string;
   }>;
 };
 
-type OrderStatusValue = "NEW" | "READY" | "DONE" | "CANCELED";
 type OrderSourceValue = "INSTAGRAM" | "STORE" | "WHOLESALE";
 
 function buildOrdersPageHref(
   page: number,
   q: string,
-  status: string,
   source: string,
   date: string,
 ) {
@@ -33,9 +30,6 @@ function buildOrdersPageHref(
 
   if (q) {
     params.set("q", q);
-  }
-  if (status) {
-    params.set("status", status);
   }
   if (source) {
     params.set("source", source);
@@ -65,73 +59,6 @@ const sourceLabels: Record<string, string> = {
   STORE: "Shitore",
   WHOLESALE: "Shumice",
 };
-
-async function updateOrderStatus(formData: FormData) {
-  "use server";
-
-  await requireRole(["SUPER_ADMIN", "WAREHOUSE"]);
-
-  const orderId = Number(formData.get("orderId"));
-  const nextStatus = formData.get("nextStatus")?.toString();
-
-  if (!orderId || !nextStatus) {
-    return;
-  }
-
-  await prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
-      include: {
-        variant: true,
-        items: true,
-      },
-    });
-
-    if (!order) {
-      return;
-    }
-
-    if (order.status === nextStatus) {
-      return;
-    }
-
-    if (nextStatus === "CANCELED" && order.status !== "CANCELED") {
-      if (order.items.length > 0) {
-        for (const item of order.items) {
-          await tx.variant.update({
-            where: { id: item.variantId },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
-          });
-        }
-      } else if (order.variantId && order.quantity) {
-        await tx.variant.update({
-          where: { id: order.variantId },
-          data: {
-            stock: {
-              increment: order.quantity,
-            },
-          },
-        });
-      }
-    }
-
-    await tx.order.update({
-      where: { id: orderId },
-      data: {
-        status: nextStatus as "NEW" | "READY" | "DONE" | "CANCELED",
-      },
-    });
-  });
-
-  revalidatePath("/");
-  revalidatePath("/products");
-  revalidatePath("/orders");
-  revalidatePath("/orders/new");
-}
 
 async function deleteOrder(formData: FormData) {
   "use server";
@@ -304,11 +231,9 @@ export default async function OrdersPage({
 }: OrdersPageProps) {
   const currentUser = await requireUser();
   const canCreateOrders = hasRole(currentUser, ["SUPER_ADMIN", "SELLER"]);
-  const canManageStatuses = hasRole(currentUser, ["SUPER_ADMIN", "WAREHOUSE"]);
   const canDeleteOrders = hasRole(currentUser, ["SUPER_ADMIN"]);
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
-  const rawStatus = resolvedSearchParams?.status?.trim() || "";
   const rawSource = resolvedSearchParams?.source?.trim() || "";
   const today = new Date();
   const defaultDate = [
@@ -323,14 +248,6 @@ export default async function OrdersPage({
   const dateFrom = new Date(`${selectedDate}T00:00:00`);
   const dateTo = new Date(dateFrom);
   dateTo.setDate(dateTo.getDate() + 1);
-  const selectedStatus: OrderStatusValue | "" = [
-    "NEW",
-    "READY",
-    "DONE",
-    "CANCELED",
-  ].includes(rawStatus)
-    ? (rawStatus as OrderStatusValue)
-    : "";
   const selectedSource: OrderSourceValue | "" = [
     "INSTAGRAM",
     "STORE",
@@ -363,11 +280,6 @@ export default async function OrdersPage({
               },
             },
           ],
-        }
-      : {}),
-    ...(selectedStatus
-      ? {
-          status: selectedStatus,
         }
       : {}),
     ...(selectedSource
@@ -492,19 +404,20 @@ export default async function OrdersPage({
     };
   });
 
-  const readyCount = normalizedOrders.filter((order) => order.status === "READY").length;
-  const doneCount = normalizedOrders.filter((order) => order.status === "DONE").length;
-  const canceledCount = normalizedOrders.filter((order) => order.status === "CANCELED").length;
-
   return (
     <main className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="space-y-5 rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
-                Te gjitha porosite
-              </h1>
+              <div className="flex flex-wrap items-end gap-3">
+                <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+                  Te gjitha porosite
+                </h1>
+                <span className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-600">
+                  {totalOrders} porosi
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -532,7 +445,6 @@ export default async function OrdersPage({
           <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
             <OrdersFilters
               searchQuery={searchQuery}
-              selectedStatus={selectedStatus}
               selectedSource={selectedSource}
               selectedDate={selectedDate}
             />
@@ -540,12 +452,12 @@ export default async function OrdersPage({
           {orders.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-base font-medium text-slate-900">
-                {searchQuery || selectedStatus || selectedSource || selectedDate
+                {searchQuery || selectedSource || selectedDate
                   ? "Nuk u gjet asnje porosi me keto filtra"
                   : "Nuk ka ende porosi te regjistruara"}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                {searchQuery || selectedStatus || selectedSource || selectedDate
+                {searchQuery || selectedSource || selectedDate
                   ? "Ndrysho filtrat ose bej reset per t'i pare te gjitha."
                   : "Shto porosine e pare per te filluar ndjekjen e shitjeve."}
               </p>
@@ -554,56 +466,15 @@ export default async function OrdersPage({
             <>
               <OrdersManager
                 orders={normalizedOrders}
-                canManageStatuses={canManageStatuses}
                 canDeleteOrders={canDeleteOrders}
                 sourceLabels={sourceLabels}
                 sourceStyles={sourceStyles}
                 statusStyles={statusStyles}
-                updateOrderStatusAction={updateOrderStatus}
                 deleteOrderAction={deleteOrder}
                 bulkDeleteOrdersAction={bulkDeleteOrders}
               />
             </>
           )}
-        </section>
-
-        <section className="grid gap-4 lg:grid-cols-4">
-          <div className="rounded-[24px] border border-blue-100 bg-white px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Porosi sot
-            </p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              {totalOrders}
-            </p>
-            <p className="mt-2 text-sm text-emerald-600">↗ +12% vs dje</p>
-          </div>
-          <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Ne pritje
-            </p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              {readyCount}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">Mjaftueshem stok per te gjitha</p>
-          </div>
-          <div className="rounded-[24px] border border-emerald-200 bg-white px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Derguar sot
-            </p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              {doneCount}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">Mesatarja 3.2h per dergese</p>
-          </div>
-          <div className="rounded-[24px] border border-rose-200 bg-white px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Anullime
-            </p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              {canceledCount}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">Shkak: Mungese stoku</p>
-          </div>
         </section>
 
         {totalOrders > PAGE_SIZE ? (
@@ -618,7 +489,6 @@ export default async function OrdersPage({
                   href={buildOrdersPageHref(
                     previousPage,
                     searchQuery,
-                    selectedStatus,
                     selectedSource,
                     selectedDate,
                   )}
@@ -636,7 +506,6 @@ export default async function OrdersPage({
                   href={buildOrdersPageHref(
                     nextPage,
                     searchQuery,
-                    selectedStatus,
                     selectedSource,
                     selectedDate,
                   )}
