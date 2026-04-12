@@ -7,6 +7,7 @@ import { OrdersFilters } from "./orders-filters";
 import { OrdersManager } from "./orders-manager";
 
 const PAGE_SIZE = 20;
+const BUSINESS_TIME_ZONE = "Europe/Belgrade";
 
 type OrdersPageProps = {
   searchParams?: Promise<{
@@ -18,6 +19,63 @@ type OrdersPageProps = {
 };
 
 type OrderSourceValue = "INSTAGRAM" | "STORE" | "WHOLESALE";
+
+function getDateStringInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  return formatter.format(date);
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  ) as Record<string, string>;
+
+  const zonedTimeAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  );
+
+  return zonedTimeAsUtc - date.getTime();
+}
+
+function getTimeZoneDayBounds(dateString: string, timeZone: string) {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const startApprox = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const endApprox = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0));
+
+  const startOffset = getTimeZoneOffsetMs(startApprox, timeZone);
+  const endOffset = getTimeZoneOffsetMs(endApprox, timeZone);
+
+  return {
+    start: new Date(startApprox.getTime() - startOffset),
+    end: new Date(endApprox.getTime() - endOffset),
+  };
+}
 
 function buildOrdersPageHref(
   page: number,
@@ -235,19 +293,18 @@ export default async function OrdersPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
   const rawSource = resolvedSearchParams?.source?.trim() || "";
-  const today = new Date();
-  const defaultDate = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, "0"),
-    String(today.getDate()).padStart(2, "0"),
-  ].join("-");
+  const defaultDate = getDateStringInTimeZone(
+    new Date(),
+    BUSINESS_TIME_ZONE,
+  );
   const rawDate = resolvedSearchParams?.date?.trim() || defaultDate;
   const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
     ? rawDate
     : defaultDate;
-  const dateFrom = new Date(`${selectedDate}T00:00:00`);
-  const dateTo = new Date(dateFrom);
-  dateTo.setDate(dateTo.getDate() + 1);
+  const { start: dateFrom, end: dateTo } = getTimeZoneDayBounds(
+    selectedDate,
+    BUSINESS_TIME_ZONE,
+  );
   const selectedSource: OrderSourceValue | "" = [
     "INSTAGRAM",
     "STORE",
