@@ -128,6 +128,30 @@ export default async function ReportsPage({
           </div>
         </section>
 
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)] print:break-inside-avoid print:shadow-none">
+          <div className="border-b border-slate-200 px-6 py-5">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+              Shitjet sipas burimit
+            </h2>
+          </div>
+          <div className="grid gap-4 px-6 py-5 md:grid-cols-3">
+            {report.sourceBreakdown.map((item) => (
+              <div
+                key={item.source}
+                className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-5"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                  {item.quantity}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">Copa te shitura</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <section className="grid gap-6 print:grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
           <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)] print:break-inside-avoid print:shadow-none">
             <div className="border-b border-slate-200 px-6 py-5">

@@ -54,6 +54,10 @@ export function OrdersManager({
   bulkDeleteOrdersAction,
 }: OrdersManagerProps) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
 
   const deletableOrderIds = useMemo(
     () => orders.map((order) => order.id),
@@ -169,6 +173,32 @@ export function OrdersManager({
     </div>
   );
 
+  const renderOrderImage = (item: OrderItem | undefined) => (
+    <button
+      type="button"
+      onClick={() =>
+        item?.imagePath
+          ? setPreviewImage({
+              src: item.imagePath,
+              alt: `${item.brand} ${item.name}`,
+            })
+          : undefined
+      }
+      className={`h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${
+        item?.imagePath ? "transition hover:border-slate-300" : ""
+      }`}
+      title={item?.imagePath ? "Hap foton" : "Pa foto"}
+    >
+      {item?.imagePath ? (
+        <UploadedImage
+          src={item.imagePath}
+          alt={item.name}
+          className="h-full w-full object-cover"
+        />
+      ) : null}
+    </button>
+  );
+
   return (
     <div className="space-y-4">
       {canDeleteOrders && selectedIds.length > 0 ? (
@@ -210,15 +240,7 @@ export function OrdersManager({
                   />
                 ) : null}
                 <div className="flex items-start gap-3">
-                  <div className="h-12 w-12 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                    {order.items[0]?.imagePath ? (
-                      <UploadedImage
-                        src={order.items[0].imagePath}
-                        alt={order.items[0].name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
+                  {renderOrderImage(order.items[0])}
                   <div>
                     <h2 className="font-semibold text-slate-950">
                       {order.items[0]?.brand} {order.items[0]?.name}
@@ -297,15 +319,7 @@ export function OrdersManager({
                 ) : null}
                 <td className="px-5 py-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                      {order.items[0]?.imagePath ? (
-                        <UploadedImage
-                          src={order.items[0].imagePath}
-                          alt={order.items[0].name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
+                    {renderOrderImage(order.items[0])}
                     <div>
                       <p className="font-semibold text-slate-950">
                         {order.items[0]?.brand} {order.items[0]?.name}
@@ -352,6 +366,34 @@ export function OrdersManager({
           </tbody>
         </table>
       </div>
+
+      {previewImage ? (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[28px] bg-white p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/75 text-white transition hover:bg-slate-950"
+              aria-label="Mbyll foton"
+            >
+              ×
+            </button>
+            <div className="overflow-hidden rounded-[22px]">
+              <UploadedImage
+                src={previewImage.src}
+                alt={previewImage.alt}
+                className="h-auto max-h-[80vh] w-full object-contain bg-slate-50"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

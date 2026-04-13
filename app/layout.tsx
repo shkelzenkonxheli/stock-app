@@ -66,7 +66,7 @@ export default async function RootLayout({
         },
         {
           href: "/products",
-          label: "Products",
+          label: "Produktet",
           icon: (
             <svg
               viewBox="0 0 24 24"
@@ -78,7 +78,7 @@ export default async function RootLayout({
         },
         {
           href: "/orders",
-          label: "Orders",
+          label: "Porosite",
           icon: (
             <svg
               viewBox="0 0 24 24"
@@ -108,7 +108,7 @@ export default async function RootLayout({
           ? [
               {
                 href: "/reports",
-                label: "Reports",
+                label: "Raportet",
                 icon: (
                   <svg
                     viewBox="0 0 24 24"
@@ -127,7 +127,7 @@ export default async function RootLayout({
           ? [
               {
                 href: "/users",
-                label: "Users",
+                label: "Userat",
                 icon: (
                   <svg
                     viewBox="0 0 24 24"

@@ -63,6 +63,7 @@ export type MonthlySalesReport = {
   totalPairs: number;
   topSourceLabel: string | null;
   topSourceQuantity: number;
+  sourceBreakdown: Array<{ source: string; label: string; quantity: number }>;
   topModels: Array<{ brand: string; name: string; quantity: number }>;
   topBrands: Array<{ brand: string; quantity: number }>;
   dailySales: Array<{ date: string; quantity: number }>;
@@ -175,6 +176,14 @@ export async function getMonthlySalesReport(selectedMonth: string) {
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 10);
 
+  const sourceBreakdown = (["INSTAGRAM", "STORE", "WHOLESALE"] as const).map(
+    (source) => ({
+      source,
+      label: sourceLabels[source],
+      quantity: sourceMap[source] ?? 0,
+    }),
+  );
+
   const topBrands = [...brandMap.entries()]
     .map(([brand, quantity]) => ({ brand, quantity }))
     .sort((a, b) => b.quantity - a.quantity)
@@ -201,6 +210,7 @@ export async function getMonthlySalesReport(selectedMonth: string) {
     totalPairs,
     topSourceLabel: topSourceEntry ? sourceLabels[topSourceEntry[0]] : null,
     topSourceQuantity: topSourceEntry?.[1] ?? 0,
+    sourceBreakdown,
     topModels,
     topBrands,
     dailySales,

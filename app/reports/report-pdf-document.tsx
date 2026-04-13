@@ -63,6 +63,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
   },
+  sourceGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 18,
+  },
+  sourceCard: {
+    flex: 1,
+    border: "1 solid #e2e8f0",
+    borderRadius: 12,
+    padding: 12,
+  },
   sectionHeader: {
     borderBottom: "1 solid #e2e8f0",
     padding: 12,
@@ -139,6 +150,16 @@ export function ReportPdfDocument({ report }: { report: MonthlySalesReport }) {
                 : "Nuk ka shitje"}
             </Text>
           </View>
+        </View>
+
+        <View style={styles.sourceGrid}>
+          {report.sourceBreakdown.map((item) => (
+            <View key={item.source} style={styles.sourceCard}>
+              <Text style={styles.statLabel}>{item.label}</Text>
+              <Text style={styles.statValue}>{item.quantity}</Text>
+              <Text style={styles.statMeta}>Copa te shitura</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.section}>
