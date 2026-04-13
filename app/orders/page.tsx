@@ -408,11 +408,13 @@ export default async function OrdersPage({
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
   const dateFormatter = new Intl.DateTimeFormat("sq-AL", {
+    timeZone: BUSINESS_TIME_ZONE,
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
   const timeFormatter = new Intl.DateTimeFormat("sq-AL", {
+    timeZone: BUSINESS_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

@@ -282,6 +282,25 @@ export default async function Home() {
       ),
     },
     {
+      title: "Raporte",
+      subtitle: "Shikoni shitjet mujore, top modelet dhe ritmin ditor te shitjeve.",
+      href: "/reports",
+      accent: "bg-[linear-gradient(135deg,#0f172a_0%,#334155_100%)]",
+      pill: "Raport mujor per adminin",
+      visible: canManageUsers,
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
+          <path d="M4 19h16" />
+          <path d="M7 16V9" />
+          <path d="M12 16V5" />
+          <path d="M17 16v-3" />
+        </svg>
+      ),
+    },
+    {
       title: "Menaxho Userat",
       subtitle: "Kontrolloni qasjen dhe rolet per secilin perdorues te sistemit.",
       href: "/users",

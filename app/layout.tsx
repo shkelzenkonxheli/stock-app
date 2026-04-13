@@ -107,6 +107,25 @@ export default async function RootLayout({
         ...(hasRole(currentUser, ["SUPER_ADMIN"])
           ? [
               {
+                href: "/reports",
+                label: "Reports",
+                icon: (
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
+                    <path d="M4 19h16" />
+                    <path d="M7 16V9" />
+                    <path d="M12 16V5" />
+                    <path d="M17 16v-3" />
+                  </svg>
+                ),
+              },
+            ]
+          : []),
+        ...(hasRole(currentUser, ["SUPER_ADMIN"])
+          ? [
+              {
                 href: "/users",
                 label: "Users",
                 icon: (
