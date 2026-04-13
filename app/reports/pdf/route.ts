@@ -23,8 +23,9 @@ export async function GET(request: Request) {
     DocumentProps
   >;
   const pdfBuffer = await renderToBuffer(document);
+  const pdfBytes = new Uint8Array(pdfBuffer);
 
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(pdfBytes, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="shkelshoes-report-${selectedMonth}.pdf"`,
