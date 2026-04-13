@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createElement } from "react";
+import { createElement, type ReactElement } from "react";
+import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireRole } from "@/lib/auth";
 import {
@@ -18,9 +19,10 @@ export async function GET(request: Request) {
   const selectedMonth = /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : defaultMonth;
 
   const report = await getMonthlySalesReport(selectedMonth);
-  const pdfBuffer = await renderToBuffer(
-    createElement(ReportPdfDocument, { report }),
-  );
+  const document = createElement(ReportPdfDocument, { report }) as ReactElement<
+    DocumentProps
+  >;
+  const pdfBuffer = await renderToBuffer(document);
 
   return new NextResponse(pdfBuffer, {
     headers: {
