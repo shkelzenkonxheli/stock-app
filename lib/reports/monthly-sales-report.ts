@@ -61,10 +61,18 @@ export type MonthlySalesReport = {
   monthLabel: string;
   ordersCount: number;
   totalPairs: number;
+  averageItemsPerOrder: number;
+  activeModelsCount: number;
   topSourceLabel: string | null;
   topSourceQuantity: number;
   sourceBreakdown: Array<{ source: string; label: string; quantity: number }>;
-  topModels: Array<{ brand: string; name: string; quantity: number }>;
+  topModels: Array<{
+    brand: string;
+    name: string;
+    quantity: number;
+    imagePath: string | null;
+    status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
+  }>;
   topBrands: Array<{ brand: string; quantity: number }>;
   dailySales: Array<{ date: string; quantity: number }>;
 };
@@ -103,6 +111,8 @@ export async function getMonthlySalesReport(selectedMonth: string) {
         },
         variant: {
           select: {
+            imagePath: true,
+            productId: true,
             product: {
               select: {
                 brand: true,
@@ -141,12 +151,26 @@ export async function getMonthlySalesReport(selectedMonth: string) {
         brand: item.variant.product.brand,
         name: item.variant.product.name,
         quantity: 0,
+        imagePath: item.variant.imagePath ?? null,
+        productId: item.variant.productId,
       };
       current.quantity += item.quantity;
+      if (!current.imagePath && item.variant.imagePath) {
+        current.imagePath = item.variant.imagePath;
+      }
       acc.set(key, current);
       return acc;
     },
-    new Map<string, { brand: string; name: string; quantity: number }>(),
+    new Map<
+      string,
+      {
+        brand: string;
+        name: string;
+        quantity: number;
+        imagePath: string | null;
+        productId: number;
+      }
+    >(),
   );
 
   const brandMap = orderItems.reduce(
@@ -172,9 +196,59 @@ export async function getMonthlySalesReport(selectedMonth: string) {
     new Map<string, number>(),
   );
 
+  const productIds = [...new Set([...modelMap.values()].map((item) => item.productId))];
+  const relatedProducts = productIds.length
+    ? await prisma.product.findMany({
+        where: {
+          id: {
+            in: productIds,
+          },
+        },
+        select: {
+          id: true,
+          variants: {
+            select: {
+              stock: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  const productStatusMap = new Map<
+    number,
+    "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK"
+  >(
+    relatedProducts.map((product) => {
+      const totalStock = product.variants.reduce(
+        (sum, variant) => sum + variant.stock,
+        0,
+      );
+      const lowStockVariants = product.variants.filter(
+        (variant) => variant.stock > 0 && variant.stock <= 3,
+      ).length;
+
+      if (totalStock <= 0) {
+        return [product.id, "OUT_OF_STOCK"];
+      }
+
+      if (totalStock <= 6 || lowStockVariants > 0) {
+        return [product.id, "LOW_STOCK"];
+      }
+
+      return [product.id, "IN_STOCK"];
+    }),
+  );
+
   const topModels = [...modelMap.values()]
     .sort((a, b) => b.quantity - a.quantity)
-    .slice(0, 10);
+    .map((item) => ({
+      brand: item.brand,
+      name: item.name,
+      quantity: item.quantity,
+      imagePath: item.imagePath,
+      status: productStatusMap.get(item.productId) ?? "IN_STOCK",
+    }));
 
   const sourceBreakdown = (["INSTAGRAM", "STORE", "WHOLESALE"] as const).map(
     (source) => ({
@@ -208,6 +282,8 @@ export async function getMonthlySalesReport(selectedMonth: string) {
     monthLabel,
     ordersCount,
     totalPairs,
+    averageItemsPerOrder: ordersCount > 0 ? totalPairs / ordersCount : 0,
+    activeModelsCount: modelMap.size,
     topSourceLabel: topSourceEntry ? sourceLabels[topSourceEntry[0]] : null,
     topSourceQuantity: topSourceEntry?.[1] ?? 0,
     sourceBreakdown,
