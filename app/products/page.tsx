@@ -115,6 +115,7 @@ export default async function ProductsPage({
 }: ProductsPageProps) {
   const currentUser = await requireUser();
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
+  const canQuickAdjustStock = hasRole(currentUser, ["SUPER_ADMIN", "WAREHOUSE"]);
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
   const selectedBrand = resolvedSearchParams?.brand?.trim() || "";
@@ -213,6 +214,7 @@ export default async function ProductsPage({
         brand: true,
         variants: {
           select: {
+            id: true,
             size: true,
             color: true,
             sku: true,
@@ -359,16 +361,19 @@ export default async function ProductsPage({
                         <div className="flex min-w-0 items-start gap-3">
                           <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
                             <ProductStockQuickView
+                              productId={product.id}
                               productName={product.name}
                               productBrand={product.brand}
                               imagePath={previewVariant?.imagePath ?? null}
                               variants={product.variants.map((variant) => ({
+                                id: variant.id,
                                 size: variant.size,
                                 color: variant.color,
                                 imagePath: variant.imagePath,
                                 stock: variant.stock,
                               }))}
                               className="h-full w-full"
+                              canAdjustStock={canQuickAdjustStock}
                             />
                           </div>
                           <div className="min-w-0">
@@ -429,16 +434,19 @@ export default async function ProductsPage({
 
                       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
                         <ProductStockQuickView
+                          productId={product.id}
                           productName={product.name}
                           productBrand={product.brand}
                           imagePath={previewVariant?.imagePath ?? null}
                           variants={product.variants.map((variant) => ({
+                            id: variant.id,
                             size: variant.size,
                             color: variant.color,
                             imagePath: variant.imagePath,
                             stock: variant.stock,
                           }))}
                           showImageButton={false}
+                          canAdjustStock={canQuickAdjustStock}
                         />
                         <Link
                           href={`/products/${product.id}`}
@@ -521,16 +529,19 @@ export default async function ProductsPage({
                             <div className="flex items-center gap-3">
                               <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                                 <ProductStockQuickView
+                                  productId={product.id}
                                   productName={product.name}
                                   productBrand={product.brand}
                                   imagePath={previewVariant?.imagePath ?? null}
                                   variants={product.variants.map((variant) => ({
+                                    id: variant.id,
                                     size: variant.size,
                                     color: variant.color,
                                     imagePath: variant.imagePath,
                                     stock: variant.stock,
                                   }))}
                                   className="h-full w-full"
+                                  canAdjustStock={canQuickAdjustStock}
                                 />
                               </div>
                               <div>
@@ -611,16 +622,19 @@ export default async function ProductsPage({
                                 Menaxho
                               </Link>
                               <ProductStockQuickView
+                                productId={product.id}
                                 productName={product.name}
                                 productBrand={product.brand}
                                 imagePath={previewVariant?.imagePath ?? null}
                                 variants={product.variants.map((variant) => ({
+                                  id: variant.id,
                                   size: variant.size,
                                   color: variant.color,
                                   imagePath: variant.imagePath,
                                   stock: variant.stock,
                                 }))}
                                 showImageButton={false}
+                                canAdjustStock={canQuickAdjustStock}
                               />
                               {canManageInventory ? (
                                 <Link
