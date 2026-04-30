@@ -417,7 +417,8 @@ export function ProductStockQuickView({
         return;
       }
 
-      setVariantsState((current) => [...current, data.variant]);
+      const createdVariant = data.variant;
+      setVariantsState((current) => [...current, createdVariant]);
       setNumberEditorColor(null);
       setNewSize("");
       setNewStock("");
@@ -477,7 +478,8 @@ export function ProductStockQuickView({
         return;
       }
 
-      setVariantsState((current) => [...current, data.variant]);
+      const createdVariant = data.variant;
+      setVariantsState((current) => [...current, createdVariant]);
       setShowVariantCreator(false);
       setVariantColor("");
       setVariantSize("");
