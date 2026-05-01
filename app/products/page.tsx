@@ -374,6 +374,7 @@ export default async function ProductsPage({
                               }))}
                               className="h-full w-full"
                               canAdjustStock={canQuickAdjustStock}
+                              canDeleteColor={canManageInventory}
                             />
                           </div>
                           <div className="min-w-0">
@@ -447,6 +448,7 @@ export default async function ProductsPage({
                           }))}
                           showImageButton={false}
                           canAdjustStock={canQuickAdjustStock}
+                          canDeleteColor={canManageInventory}
                         />
                         <Link
                           href={`/products/${product.id}`}
@@ -542,6 +544,7 @@ export default async function ProductsPage({
                                   }))}
                                   className="h-full w-full"
                                   canAdjustStock={canQuickAdjustStock}
+                                  canDeleteColor={canManageInventory}
                                 />
                               </div>
                               <div>
@@ -635,6 +638,7 @@ export default async function ProductsPage({
                                 }))}
                                 showImageButton={false}
                                 canAdjustStock={canQuickAdjustStock}
+                                canDeleteColor={canManageInventory}
                               />
                               {canManageInventory ? (
                                 <Link

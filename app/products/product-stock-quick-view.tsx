@@ -22,9 +22,15 @@ type ProductStockQuickViewProps = {
   className?: string;
   showImageButton?: boolean;
   canAdjustStock?: boolean;
+  canDeleteColor?: boolean;
 };
 
 type StockReason = "INCOMING_STOCK" | "CUSTOMER_RETURN";
+type VariantDraftRow = {
+  id: number;
+  size: string;
+  stock: string;
+};
 
 function getColorSwatchClass(color: string) {
   const normalized = color.trim().toLowerCase();
@@ -135,6 +141,16 @@ function IconCheck() {
   );
 }
 
+function IconMore() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+      <circle cx="4.5" cy="10" r="1.4" />
+      <circle cx="10" cy="10" r="1.4" />
+      <circle cx="15.5" cy="10" r="1.4" />
+    </svg>
+  );
+}
+
 export function ProductStockQuickView({
   productId,
   productName,
@@ -144,6 +160,7 @@ export function ProductStockQuickView({
   className = "",
   showImageButton = true,
   canAdjustStock = false,
+  canDeleteColor = false,
 }: ProductStockQuickViewProps) {
   const [showStock, setShowStock] = useState(false);
   const [variantsState, setVariantsState] = useState(variants);
@@ -172,13 +189,18 @@ export function ProductStockQuickView({
 
   const [showVariantCreator, setShowVariantCreator] = useState(false);
   const [variantColor, setVariantColor] = useState("");
-  const [variantSize, setVariantSize] = useState("");
-  const [variantStock, setVariantStock] = useState("");
   const [variantPrice, setVariantPrice] = useState("");
   const [variantError, setVariantError] = useState<string | null>(null);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [variantImageFile, setVariantImageFile] = useState<File | null>(null);
   const [variantImagePreview, setVariantImagePreview] = useState<string | null>(null);
+  const [variantRows, setVariantRows] = useState<VariantDraftRow[]>([]);
+  const [variantDraftSize, setVariantDraftSize] = useState("");
+  const [variantDraftStock, setVariantDraftStock] = useState("");
+  const [openColorActions, setOpenColorActions] = useState<string | null>(null);
+  const [deleteColorTarget, setDeleteColorTarget] = useState<string | null>(null);
+  const [deleteColorError, setDeleteColorError] = useState<string | null>(null);
+  const [deletingColor, setDeletingColor] = useState(false);
 
   const groupedVariants = useMemo(() => {
     const sorted = [...variantsState].sort(
@@ -224,11 +246,10 @@ export function ProductStockQuickView({
     [groupedVariants],
   );
   const normalizedVariantColor = variantColor.trim().toLowerCase();
-  const matchedVariantColor =
+  const existingVariantColor =
     availableColors.find(
       (color) => color.trim().toLowerCase() === normalizedVariantColor,
     ) ?? null;
-  const requiresVariantPrice = !matchedVariantColor && variantColor.trim().length > 0;
 
   useEffect(() => {
     if (!successToast) {
@@ -249,6 +270,63 @@ export function ProductStockQuickView({
       }
     };
   }, [variantImagePreview]);
+
+  function resetVariantCreator() {
+    setShowVariantCreator(false);
+    setVariantColor("");
+    setVariantPrice("");
+    setVariantRows([]);
+    setVariantDraftSize("");
+    setVariantDraftStock("");
+    setVariantError(null);
+    setVariantImageFile(null);
+    if (variantImagePreview) {
+      URL.revokeObjectURL(variantImagePreview);
+    }
+    setVariantImagePreview(null);
+  }
+
+  function addVariantRow() {
+    const size = variantDraftSize.trim();
+    const stock = Number(variantDraftStock);
+
+    if (!size || !Number.isInteger(stock) || stock < 0) {
+      setVariantError("Ploteso numrin dhe sasine para se ta shtosh.");
+      return;
+    }
+
+    const normalizedSize = size.toLowerCase();
+    const alreadyAdded = variantRows.some(
+      (row) => row.size.trim().toLowerCase() === normalizedSize,
+    );
+    const alreadyExists = variantsState.some(
+      (variant) =>
+        variant.color.trim().toLowerCase() === normalizedVariantColor &&
+        variant.size.trim().toLowerCase() === normalizedSize,
+    );
+
+    if (alreadyAdded || alreadyExists) {
+      setVariantError(`Numri ${size} ekziston tashme per kete ngjyre.`);
+      return;
+    }
+
+    setVariantRows((current) => [
+      ...current,
+      {
+        id: Date.now() + current.length,
+        size,
+        stock: String(stock),
+      },
+    ]);
+    const parsedSize = Number(size);
+    setVariantDraftSize(
+      Number.isFinite(parsedSize) && size !== ""
+        ? String(parsedSize + 1)
+        : "",
+    );
+    setVariantDraftStock("");
+    setVariantError(null);
+  }
 
   async function saveQuickStock() {
     const updates = Object.entries(stockInputs)
@@ -432,69 +510,151 @@ export function ProductStockQuickView({
 
   async function saveNewVariant() {
     const color = variantColor.trim();
-    const size = variantSize.trim();
-    const stock = Number(variantStock);
-
-    if (!color || !size || !Number.isInteger(stock) || stock < 0) {
-      setVariantError("Ploteso ngjyren, numrin dhe sasine.");
+    if (!color) {
+      setVariantError("Ploteso ngjyren.");
       return;
+    }
+
+    if (existingVariantColor) {
+      setVariantError("Kjo ngjyre ekziston tashme. Perdor Shto numer.");
+      return;
+    }
+
+    const parsedPrice = Number(variantPrice);
+
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      setVariantError("Jep cmimin per ngjyre te re.");
+      return;
+    }
+
+    const pendingRows = [...variantRows];
+    if (variantDraftSize.trim() || variantDraftStock.trim()) {
+      pendingRows.push({
+        id: Date.now() + pendingRows.length,
+        size: variantDraftSize.trim(),
+        stock: variantDraftStock.trim(),
+      });
+    }
+
+    const cleanedRows = pendingRows
+      .map((row) => ({
+        size: row.size.trim(),
+        stock: Number(row.stock),
+      }))
+      .filter((row) => row.size || row.stock || row.stock === 0);
+
+    if (cleanedRows.length === 0) {
+      setVariantError("Shto te pakten nje numer.");
+      return;
+    }
+
+    const invalidRow = cleanedRows.find(
+      (row) => !row.size || !Number.isInteger(row.stock) || row.stock < 0,
+    );
+
+    if (invalidRow) {
+      setVariantError("Ploteso numrin dhe sasine per cdo rresht.");
+      return;
+    }
+
+    const seenSizes = new Set<string>();
+    for (const row of cleanedRows) {
+      const normalizedSize = row.size.toLowerCase();
+      if (seenSizes.has(normalizedSize)) {
+        setVariantError(`Numri ${row.size} eshte shkruar me shume se nje here.`);
+        return;
+      }
+      seenSizes.add(normalizedSize);
     }
 
     setCreatingVariant(true);
     setVariantError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("productId", String(productId));
-      formData.append("color", color);
-      formData.append("size", size);
-      formData.append("stock", String(stock));
+      const createdVariants: ProductQuickVariant[] = [];
 
-      if (requiresVariantPrice) {
-        const price = Number(variantPrice);
-        if (Number.isNaN(price) || price < 0) {
-          setVariantError("Jep cmimin per ngjyre te re.");
+      for (const [index, row] of cleanedRows.entries()) {
+        const formData = new FormData();
+        formData.append("productId", String(productId));
+        formData.append("color", color);
+        formData.append("size", row.size);
+        formData.append("stock", String(row.stock));
+        formData.append("price", String(parsedPrice));
+
+        if (index === 0 && variantImageFile) {
+          formData.append("image", variantImageFile);
+        }
+
+        const response = await fetch("/api/variants/quick-create", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await response.json().catch(() => null)) as
+          | { error?: string; variant?: ProductQuickVariant }
+          | null;
+
+        if (!response.ok || !data?.variant) {
+          setVariantError(data?.error ?? "Krijimi i variantit deshtoi.");
           setCreatingVariant(false);
           return;
         }
-        formData.append("price", String(price));
+
+        createdVariants.push(data.variant);
       }
 
-      if (variantImageFile) {
-        formData.append("image", variantImageFile);
-      }
-
-      const response = await fetch("/api/variants/quick-create", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = (await response.json().catch(() => null)) as
-        | { error?: string; variant?: ProductQuickVariant }
-        | null;
-
-      if (!response.ok || !data?.variant) {
-        setVariantError(data?.error ?? "Krijimi i variantit deshtoi.");
-        return;
-      }
-
-      const createdVariant = data.variant;
-      setVariantsState((current) => [...current, createdVariant]);
-      setShowVariantCreator(false);
-      setVariantColor("");
-      setVariantSize("");
-      setVariantStock("");
-      setVariantPrice("");
-      setVariantImageFile(null);
-      if (variantImagePreview) {
-        URL.revokeObjectURL(variantImagePreview);
-      }
-      setVariantImagePreview(null);
-      setSuccessToast("Varianti i ri u shtua.");
+      setVariantsState((current) => [...current, ...createdVariants]);
+      resetVariantCreator();
+      setSuccessToast("Variantet e reja u shtuan.");
     } catch {
       setVariantError("Krijimi i variantit deshtoi.");
     } finally {
       setCreatingVariant(false);
+    }
+  }
+
+  async function deleteColorGroup() {
+    if (!deleteColorTarget) {
+      return;
+    }
+
+    setDeletingColor(true);
+    setDeleteColorError(null);
+
+    try {
+      const response = await fetch("/api/variants/delete-color", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          color: deleteColorTarget,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            deletedVariantIds?: number[];
+          }
+        | null;
+
+      if (!response.ok || !data?.deletedVariantIds) {
+        setDeleteColorError(data?.error ?? "Fshirja e ngjyres deshtoi.");
+        return;
+      }
+
+      const deletedIds = new Set(data.deletedVariantIds);
+      setVariantsState((current) =>
+        current.filter((variant) => !deletedIds.has(variant.id)),
+      );
+      setDeleteColorTarget(null);
+      setSuccessToast("Ngjyra u fshi.");
+    } catch {
+      setDeleteColorError("Fshirja e ngjyres deshtoi.");
+    } finally {
+      setDeletingColor(false);
     }
   }
 
@@ -582,19 +742,20 @@ export function ProductStockQuickView({
                   <button
                     type="button"
                     onClick={() => {
-                      setShowVariantCreator(true);
-                      setVariantColor("");
-                      setVariantSize("");
-                      setVariantStock("");
-                      setVariantPrice("");
-                      setVariantImageFile(null);
-                      if (variantImagePreview) {
-                        URL.revokeObjectURL(variantImagePreview);
+      setShowVariantCreator(true);
+      setVariantColor("");
+      setVariantPrice("");
+      setVariantRows([]);
+      setVariantDraftSize("");
+      setVariantDraftStock("");
+      setVariantImageFile(null);
+      if (variantImagePreview) {
+        URL.revokeObjectURL(variantImagePreview);
                       }
                       setVariantImagePreview(null);
                       setVariantError(null);
                     }}
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 sm:px-3 sm:text-sm"
                   >
                     <IconPlus />
                     Shto variant
@@ -626,8 +787,8 @@ export function ProductStockQuickView({
                     key={color}
                     className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-4">
                         <button
                           type="button"
                           onClick={() =>
@@ -664,58 +825,97 @@ export function ProductStockQuickView({
                             </h3>
                           </div>
                           <p className="mt-1 text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
-                            {colorStockTotal} cope ne total
+                            {colorStockTotal} cope
                           </p>
                         </div>
                       </div>
 
                       {canAdjustStock ? (
-                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <div className="relative shrink-0 self-start">
                           <button
                             type="button"
-                            onClick={() => {
-                              setNumberEditorColor(color);
-                              setNewSize("");
-                              setNewStock("");
-                              setCreateError(null);
-                            }}
-                            className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            onClick={() =>
+                              setOpenColorActions((current) =>
+                                current === color ? null : color,
+                              )
+                            }
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                            aria-label={`Veprimet per ${color}`}
                           >
-                            <IconLayers />
-                            Shto numer
+                            <IconMore />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStockEditorColor(color);
-                              setStockInputs({});
-                              setStockReason("INCOMING_STOCK");
-                              setStockError(null);
-                            }}
-                            className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                          >
-                            <IconBox />
-                            Shto sasi
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditStockColor(color);
-                              setEditStockInputs(
-                                Object.fromEntries(
-                                  colorVariants.map((variant) => [
-                                    variant.id,
-                                    String(variant.stock),
-                                  ]),
-                                ),
-                              );
-                              setEditStockError(null);
-                            }}
-                            className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                          >
-                            <IconPencil />
-                            Edito stokun
-                          </button>
+
+                          {openColorActions === color ? (
+                            <div className="absolute right-0 top-12 z-20 w-52 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenColorActions(null);
+                                  setStockEditorColor(color);
+                                  setStockInputs({});
+                                  setStockReason("INCOMING_STOCK");
+                                  setStockError(null);
+                                }}
+                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <IconBox />
+                                Shto sasi
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenColorActions(null);
+                                  setNumberEditorColor(color);
+                                  setNewSize("");
+                                  setNewStock("");
+                                  setCreateError(null);
+                                }}
+                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <IconLayers />
+                                Shto numer
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenColorActions(null);
+                                  setEditStockColor(color);
+                                  setEditStockInputs(
+                                    Object.fromEntries(
+                                      colorVariants.map((variant) => [
+                                        variant.id,
+                                        String(variant.stock),
+                                      ]),
+                                    ),
+                                  );
+                                  setEditStockError(null);
+                                }}
+                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <IconPencil />
+                                Edito stokun
+                              </button>
+                              {canDeleteColor ? (
+                                <>
+                                  <div className="my-2 h-px bg-slate-100" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenColorActions(null);
+                                      setDeleteColorTarget(color);
+                                      setDeleteColorError(null);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                                  >
+                                    <span className="inline-flex h-4 w-4 items-center justify-center text-base leading-none">
+                                      ×
+                                    </span>
+                                    Fshi ngjyren
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
@@ -775,6 +975,77 @@ export function ProductStockQuickView({
                 alt={previewImage.alt}
                 className="h-auto max-h-[80vh] w-full object-contain bg-slate-50"
               />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteColorTarget ? (
+        <div
+          className="fixed inset-0 z-[96] flex items-center justify-center bg-slate-950/65 p-4"
+          onClick={() => {
+            if (!deletingColor) {
+              setDeleteColorTarget(null);
+              setDeleteColorError(null);
+            }
+          }}
+        >
+          <div
+            className={`${modalCardClass()} max-w-md`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-950">
+                  Fshi ngjyren
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Kjo do fshije ngjyren <span className="font-semibold text-slate-900">{deleteColorTarget}</span> dhe te gjithe numrat e saj.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!deletingColor) {
+                    setDeleteColorTarget(null);
+                    setDeleteColorError(null);
+                  }
+                }}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                aria-label="Mbyll"
+              >
+                x
+              </button>
+            </div>
+
+            {deleteColorError ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {deleteColorError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!deletingColor) {
+                    setDeleteColorTarget(null);
+                    setDeleteColorError(null);
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                disabled={deletingColor}
+              >
+                Anulo
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteColorGroup()}
+                className="inline-flex items-center justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deletingColor}
+              >
+                {deletingColor ? "Duke fshire..." : "Fshi ngjyren"}
+              </button>
             </div>
           </div>
         </div>
@@ -1174,35 +1445,49 @@ export function ProductStockQuickView({
 
       {showVariantCreator ? (
         <div
-          className="fixed inset-0 z-[96] flex items-center justify-center bg-slate-950/65 p-4"
+          className="fixed inset-0 z-[96] flex items-center justify-center bg-slate-950/65 p-3 sm:p-4"
           onClick={() => {
             if (!creatingVariant) {
-              setShowVariantCreator(false);
-              setVariantError(null);
+              resetVariantCreator();
             }
           }}
         >
-          <div className={`${modalCardClass()} max-w-2xl`} onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4">
+          <div
+            className={`${modalCardClass()} max-h-[calc(100vh-24px)] max-w-3xl overflow-hidden p-0 sm:max-h-[calc(100vh-32px)]`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex max-h-[calc(100vh-24px)] flex-col sm:max-h-[calc(100vh-32px)]">
+            <div className="flex items-start justify-between gap-4 px-5 pb-0 pt-5">
               <div>
                 <h3 className="text-lg font-semibold text-slate-950">
                   Shto variant
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Krijo variant te ri per kete model. Nese ngjyra ekziston, cmimi merret automatikisht.
+                  Krijo ngjyre te re dhe shto disa numra ne nje hap.
                 </p>
+                {availableColors.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {availableColors.map((color) => (
+                      <span
+                        key={`variant-color-${color}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600"
+                      >
+                        <span
+                          className={`inline-flex h-2.5 w-2.5 rounded-full ${getColorSwatchClass(
+                            color,
+                          )}`}
+                        />
+                        {color}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <button
                 type="button"
                 onClick={() => {
                   if (!creatingVariant) {
-                    setShowVariantCreator(false);
-                    setVariantError(null);
-                    setVariantImageFile(null);
-                    if (variantImagePreview) {
-                      URL.revokeObjectURL(variantImagePreview);
-                    }
-                    setVariantImagePreview(null);
+                    resetVariantCreator();
                   }
                 }}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
@@ -1212,110 +1497,10 @@ export function ProductStockQuickView({
               </button>
             </div>
 
-            <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Ngjyra
-                  </span>
-                  <input
-                    type="text"
-                    list="quick-variant-colors"
-                    value={variantColor}
-                    onChange={(event) => setVariantColor(event.target.value)}
-                    placeholder="Blue"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-                  />
-                  <datalist id="quick-variant-colors">
-                    {availableColors.map((color) => (
-                      <option key={color} value={color} />
-                    ))}
-                  </datalist>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Numri
-                  </span>
-                  <input
-                    type="text"
-                    value={variantSize}
-                    onChange={(event) => setVariantSize(event.target.value)}
-                    placeholder="44"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Sasia
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={variantStock}
-                    onChange={(event) => setVariantStock(event.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-                  />
-                </label>
-
-                {requiresVariantPrice ? (
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Cmimi
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={variantPrice}
-                      onChange={(event) => setVariantPrice(event.target.value)}
-                      placeholder="0"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-                    />
-                  </label>
-                ) : (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {matchedVariantColor
-                      ? `Cmimi do te merret nga ngjyra ${matchedVariantColor}.`
-                      : "Zgjidh ose shkruaj ngjyren per te vazhduar."}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Foto opsionale
-                </label>
-                <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-start">
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/avif"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-
-                        if (variantImagePreview) {
-                          URL.revokeObjectURL(variantImagePreview);
-                        }
-
-                        if (!file) {
-                          setVariantImageFile(null);
-                          setVariantImagePreview(null);
-                          return;
-                        }
-
-                        setVariantImageFile(file);
-                        setVariantImagePreview(URL.createObjectURL(file));
-                      }}
-                      className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2.5 file:font-medium file:text-white hover:file:bg-slate-800"
-                    />
-                    <p className="mt-2 text-xs text-slate-500">
-                      Nese nuk zgjedh foto, merret fotoja ekzistuese e ngjyres kur ka.
-                    </p>
-                  </div>
-
+            <div className="mt-5 flex-1 overflow-y-auto px-5 pb-4">
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+              <div className="grid items-start gap-4 lg:grid-cols-[132px_minmax(0,1fr)]">
+                <div className="self-start rounded-2xl border border-slate-200 bg-white p-3">
                   <button
                     type="button"
                     onClick={() =>
@@ -1326,7 +1511,7 @@ export function ProductStockQuickView({
                           })
                         : undefined
                     }
-                    className="flex h-[120px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                    className="flex h-[92px] w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
                     title={variantImagePreview ? "Hap foton" : "Pa foto"}
                   >
                     {variantImagePreview ? (
@@ -1341,53 +1526,167 @@ export function ProductStockQuickView({
                       </span>
                     )}
                   </button>
-                </div>
-              </div>
+                  <input
+                    id="quick-variant-image"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/avif"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
 
-              {availableColors.length > 0 ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    Ngjyrat ekzistuese
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {availableColors.map((color) => (
-                      <button
-                        key={`color-${color}`}
-                        type="button"
-                        onClick={() => setVariantColor(color)}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
-                      >
-                        <span
-                          className={`inline-flex h-2.5 w-2.5 rounded-full ${getColorSwatchClass(
-                            color,
-                          )}`}
+                      if (variantImagePreview) {
+                        URL.revokeObjectURL(variantImagePreview);
+                      }
+
+                      if (!file) {
+                        setVariantImageFile(null);
+                        setVariantImagePreview(null);
+                        return;
+                      }
+
+                      setVariantImageFile(file);
+                      setVariantImagePreview(URL.createObjectURL(file));
+                    }}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="quick-variant-image"
+                    className="mt-2 inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-slate-950 px-2.5 py-2 text-[11px] font-medium text-white transition hover:bg-slate-800"
+                  >
+                    Choose file
+                  </label>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Ngjyra e re
+                      </span>
+                      <input
+                        type="text"
+                        value={variantColor}
+                        onChange={(event) => setVariantColor(event.target.value)}
+                        placeholder="Blue"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+                      />
+                    </label>
+
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Cmimi
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={variantPrice}
+                        onChange={(event) => setVariantPrice(event.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+                      />
+                    </label>
+                  </div>
+
+                  {existingVariantColor ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      Kjo ngjyre ekziston tashme. Perdor `Shto numer`.
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Numrat
+                      </p>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2.5 grid-cols-[minmax(0,1fr)_88px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]">
+                      <label className="space-y-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Numri
+                        </span>
+                        <input
+                          type="text"
+                          value={variantDraftSize}
+                          onChange={(event) => setVariantDraftSize(event.target.value)}
+                          placeholder="44"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
                         />
-                        {color}
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Sasia
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={variantDraftStock}
+                          onChange={(event) => setVariantDraftStock(event.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addVariantRow}
+                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 self-end"
+                      >
+                        <IconPlus />
+                        Shto
                       </button>
-                    ))}
+                    </div>
+
+                    {variantRows.length > 0 ? (
+                      <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Numrat qe po shtohen
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          {variantRows.map((row) => (
+                            <div
+                              key={row.id}
+                              className="inline-flex min-w-0 items-center justify-between gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 sm:max-w-full sm:justify-start"
+                            >
+                              <span className="text-sm font-semibold text-slate-900">
+                                Nr {row.size}
+                              </span>
+                              <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                {row.stock} cope
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setVariantRows((current) =>
+                                    current.filter((item) => item.id !== row.id),
+                                  )
+                                }
+                                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-50"
+                              >
+                                Hiq
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-              ) : null}
+              </div>
+            </div>
             </div>
 
             {variantError ? (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="mx-5 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {variantError}
               </div>
             ) : null}
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <div className="mt-5 flex flex-col-reverse gap-3 border-t border-slate-100 bg-white px-5 pb-5 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => {
                   if (!creatingVariant) {
-                    setShowVariantCreator(false);
-                    setVariantError(null);
-                    setVariantImageFile(null);
-                    if (variantImagePreview) {
-                      URL.revokeObjectURL(variantImagePreview);
-                    }
-                    setVariantImagePreview(null);
+                    resetVariantCreator();
                   }
                 }}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -1404,6 +1703,7 @@ export function ProductStockQuickView({
                 {!creatingVariant ? <IconCheck /> : null}
                 {creatingVariant ? "Duke ruajtur..." : "Ruaj variantin"}
               </button>
+            </div>
             </div>
           </div>
         </div>
