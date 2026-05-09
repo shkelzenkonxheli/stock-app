@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ProductModelPicker } from "@/app/components/product-model-picker";
+import { VariantColorPicker } from "@/app/components/variant-color-picker";
 import { UploadedImage } from "@/app/components/uploaded-image";
 
 type OrderVariant = {
@@ -19,6 +21,7 @@ type ProductOption = {
   id: number;
   name: string;
   brand: string;
+  imagePath: string | null;
 };
 
 type OrderFormProps = {
@@ -564,50 +567,34 @@ export function OrderForm({ action, products }: OrderFormProps) {
                       <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Produkti
                       </label>
-                      <select
-                        value={row.productId}
-                        onChange={(event) =>
-                          updateRow(row.id, "productId", event.target.value)
-                        }
-                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                      >
-                        <option value="">Zgjidh produktin</option>
-                        {brandProducts.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
-                          </option>
-                        ))}
-                      </select>
+                      <ProductModelPicker
+                        products={brandProducts}
+                        selectedProductId={row.productId}
+                        onSelect={(value) => updateRow(row.id, "productId", value)}
+                        disabled={!row.brand}
+                        placeholder={!row.brand ? "Zgjidh brandin" : "Zgjidh produktin"}
+                        emptyLabel="Nuk ka modele per kete brand."
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Varianti
                       </label>
-                      <select
-                        value={row.variantId}
-                        onChange={(event) =>
-                          updateRow(row.id, "variantId", event.target.value)
-                        }
+                      <VariantColorPicker
+                        variants={filteredVariants}
+                        selectedVariantId={row.variantId}
+                        onSelectVariant={(value) => updateRow(row.id, "variantId", value)}
                         disabled={!row.productId || isLoadingVariants}
-                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
-                      >
-                        <option value="">
-                          {!row.productId
-                            ? "Zgjidh variantin"
+                        placeholder={
+                          !row.productId
+                            ? "Zgjidh produktin"
                             : isLoadingVariants
                               ? "Duke ngarkuar..."
-                              : filteredVariants.length === 0
-                                ? "Pa stok"
-                                : "Zgjidh variantin"}
-                        </option>
-                        {filteredVariants.map((variant) => (
-                          <option key={variant.id} value={variant.id}>
-                            Masa {variant.size} | {variant.color} | stok{" "}
-                            {variant.availableStock}
-                          </option>
-                        ))}
-                      </select>
+                              : "Zgjidh ngjyren"
+                        }
+                        emptyLabel="Nuk ka variante me stok."
+                      />
                     </div>
 
                     <div className="space-y-2">

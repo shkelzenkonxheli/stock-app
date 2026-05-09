@@ -188,6 +188,17 @@ export default async function NewOrderPage({
       id: true,
       name: true,
       brand: true,
+      variants: {
+        where: {
+          imagePath: {
+            not: null,
+          },
+        },
+        select: {
+          imagePath: true,
+        },
+        take: 1,
+      },
     },
     orderBy: [{ name: "asc" }, { brand: "asc" }],
   });
@@ -220,6 +231,7 @@ export default async function NewOrderPage({
             id: product.id,
             name: product.name,
             brand: product.brand,
+            imagePath: product.variants[0]?.imagePath ?? null,
           }))}
         />
       </div>

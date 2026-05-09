@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ProductModelPicker } from "@/app/components/product-model-picker";
+import { VariantColorPicker } from "@/app/components/variant-color-picker";
 import { UploadedImage } from "@/app/components/uploaded-image";
 
 type ProductOption = {
@@ -389,46 +391,32 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
             ))}
           </select>
 
-          <select
-            value={selectedProductId}
-            onChange={(event) => {
-              setSelectedProductId(event.target.value);
+          <ProductModelPicker
+            products={filteredProducts}
+            selectedProductId={selectedProductId}
+            onSelect={(value) => {
+              setSelectedProductId(value);
               setSelectedVariantId("");
             }}
             disabled={!selectedBrand}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">
-              {!selectedBrand ? "Zgjidh Brandin" : "Zgjidh Modelin"}
-            </option>
-            {filteredProducts.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
+            placeholder={!selectedBrand ? "Zgjidh Brandin" : "Zgjidh Modelin"}
+            emptyLabel="Nuk ka modele per kete brand."
+          />
 
-          <select
-            value={selectedVariantId}
-            onChange={(event) => addSelectedVariant(event.target.value)}
+          <VariantColorPicker
+            variants={variantOptions}
+            selectedVariantId={selectedVariantId}
+            onSelectVariant={(value) => addSelectedVariant(value)}
             disabled={!selectedProductId || currentProductLoading}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">
-              {!selectedProductId
+            placeholder={
+              !selectedProductId
                 ? "Zgjidh Modelin"
                 : currentProductLoading
                   ? "Duke ngarkuar variantet..."
-                  : variantOptions.length === 0
-                    ? "Nuk ka stok"
-                    : "Zgjidh Variantin"}
-            </option>
-            {variantOptions.map((variant) => (
-              <option key={variant.id} value={variant.id}>
-                Nr {variant.size} | {variant.color} | stok {variant.availableStock}
-              </option>
-            ))}
-          </select>
+                  : "Zgjidh ngjyren"
+            }
+            emptyLabel="Nuk ka variante me stok."
+          />
         </div>
       </div>
 
