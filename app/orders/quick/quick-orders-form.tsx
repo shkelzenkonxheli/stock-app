@@ -66,6 +66,9 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [pendingColorPickerOpen, setPendingColorPickerOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{
     src: string;
     alt: string;
@@ -146,9 +149,33 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   const currentVariants = currentProductId
     ? variantsByProduct[currentProductId] ?? []
     : [];
+  const hasLoadedCurrentVariants =
+    currentProductId > 0 &&
+    Object.prototype.hasOwnProperty.call(variantsByProduct, currentProductId);
   const currentProductLoading = currentProductId
     ? Boolean(loadingProducts[currentProductId])
     : false;
+  const selectedProduct =
+    products.find((product) => String(product.id) === selectedProductId) ?? null;
+
+  useEffect(() => {
+    if (
+      !pendingColorPickerOpen ||
+      !selectedProductId ||
+      currentProductLoading ||
+      !hasLoadedCurrentVariants
+    ) {
+      return;
+    }
+
+    setColorPickerOpen(true);
+    setPendingColorPickerOpen(false);
+  }, [
+    pendingColorPickerOpen,
+    selectedProductId,
+    currentProductLoading,
+    hasLoadedCurrentVariants,
+  ]);
 
   const variantUsage = useMemo(() => {
     const totals = new Map<number, number>();
@@ -377,9 +404,14 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
           <select
             value={selectedBrand}
             onChange={(event) => {
-              setSelectedBrand(event.target.value);
+              const nextBrand = event.target.value;
+
+              setSelectedBrand(nextBrand);
               setSelectedProductId("");
               setSelectedVariantId("");
+              setColorPickerOpen(false);
+              setPendingColorPickerOpen(false);
+              setModelPickerOpen(Boolean(nextBrand));
             }}
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
           >
@@ -397,27 +429,91 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
             onSelect={(value) => {
               setSelectedProductId(value);
               setSelectedVariantId("");
+              setModelPickerOpen(false);
+              setColorPickerOpen(false);
+              setPendingColorPickerOpen(true);
             }}
             disabled={!selectedBrand}
-            placeholder={!selectedBrand ? "Zgjidh Brandin" : "Zgjidh Modelin"}
+            placeholder="Zgjidh Modelin"
             emptyLabel="Nuk ka modele per kete brand."
-          />
-
-          <VariantColorPicker
-            variants={variantOptions}
-            selectedVariantId={selectedVariantId}
-            onSelectVariant={(value) => addSelectedVariant(value)}
-            disabled={!selectedProductId || currentProductLoading}
-            placeholder={
-              !selectedProductId
-                ? "Zgjidh Modelin"
-                : currentProductLoading
-                  ? "Duke ngarkuar variantet..."
-                  : "Zgjidh ngjyren"
-            }
-            emptyLabel="Nuk ka variante me stok."
+            displayMode="modalCards"
+            open={modelPickerOpen}
+            onOpenChange={setModelPickerOpen}
+            hideTrigger
           />
         </div>
+
+        {selectedProduct ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-900">
+              {selectedProduct.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setColorPickerOpen(false);
+                setPendingColorPickerOpen(false);
+                setModelPickerOpen(true);
+              }}
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-slate-600 transition hover:bg-slate-100"
+            >
+              Ndrysho modelin
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentProductLoading && variantOptions.length > 0) {
+                  setColorPickerOpen(true);
+                }
+              }}
+              className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-700 transition hover:bg-emerald-100"
+            >
+              Zgjidh ngjyren
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedProductId("");
+                setSelectedVariantId("");
+                setModelPickerOpen(false);
+                setColorPickerOpen(false);
+                setPendingColorPickerOpen(false);
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-base leading-none text-slate-500 transition hover:bg-slate-100"
+              aria-label="Hiq modelin e zgjedhur"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        <VariantColorPicker
+          variants={variantOptions}
+          selectedVariantId={selectedVariantId}
+          onSelectVariant={(value) => {
+            addSelectedVariant(value);
+            setColorPickerOpen(false);
+            setPendingColorPickerOpen(false);
+          }}
+          disabled={!selectedProductId || currentProductLoading}
+          placeholder={
+            !selectedProductId
+              ? "Zgjidh Modelin"
+              : currentProductLoading
+                ? "Duke ngarkuar variantet..."
+                : "Zgjidh ngjyren"
+          }
+          emptyLabel="Nuk ka variante me stok."
+          displayMode="modalCards"
+          open={colorPickerOpen}
+          onOpenChange={setColorPickerOpen}
+          hideTrigger
+          onBack={() => {
+            setColorPickerOpen(false);
+            setPendingColorPickerOpen(false);
+            setModelPickerOpen(true);
+          }}
+        />
       </div>
 
       <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_10px_25px_rgba(15,23,42,0.05)]">

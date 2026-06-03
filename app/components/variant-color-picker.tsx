@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UploadedImage } from "@/app/components/uploaded-image";
 
 type VariantOption = {
@@ -18,6 +18,11 @@ type VariantColorPickerProps = {
   disabled?: boolean;
   placeholder: string;
   emptyLabel: string;
+  displayMode?: "dropdown" | "cards" | "modalCards";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  onBack?: () => void;
 };
 
 type ColorGroup = {
@@ -42,12 +47,29 @@ export function VariantColorPicker({
   disabled = false,
   placeholder,
   emptyLabel,
+  displayMode = "dropdown",
+  open,
+  onOpenChange,
+  hideTrigger = false,
+  onBack,
 }: VariantColorPickerProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [activeColorKey, setActiveColorKey] = useState<string | null>(null);
   const [hoverPreview, setHoverPreview] = useState<HoverPreview | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isControlled = typeof open === "boolean";
+  const isOpen = isControlled ? open : internalOpen;
+
+  const setIsOpen = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(isOpen) : next;
+
+    if (!isControlled) {
+      setInternalOpen(resolved);
+    }
+
+    onOpenChange?.(resolved);
+  }, [isControlled, isOpen, onOpenChange]);
 
   const colorGroups = useMemo(() => {
     const map = new Map<string, ColorGroup>();
@@ -90,75 +112,133 @@ export function VariantColorPicker({
   const activeColor =
     colorGroups.find((group) => group.key === activeColorKey) ?? null;
 
+  const selectedColorKey =
+    colorGroups.find((group) =>
+      group.variants.some((variant) => String(variant.id) === selectedVariantId),
+    )?.key ?? null;
+
   useEffect(() => {
-    if (!pickerOpen) {
+    if (!isOpen) {
       return;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         setHoverPreview(null);
-        setPickerOpen(false);
+        setIsOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [pickerOpen]);
+  }, [isOpen, setIsOpen]);
 
   useEffect(() => {
-    if (!pickerOpen && !activeColorKey) {
+    if (!isOpen && !activeColorKey) {
       return;
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setHoverPreview(null);
-        setPickerOpen(false);
+        setIsOpen(false);
         setActiveColorKey(null);
       }
     };
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [pickerOpen, activeColorKey]);
+  }, [isOpen, activeColorKey, setIsOpen]);
 
   return (
     <>
       <div ref={rootRef} className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            if (!disabled && colorGroups.length > 0) {
-              setHoverPreview(null);
-              setPickerOpen((current) => !current);
-            }
-          }}
-          disabled={disabled}
-          className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-        >
-          <span className="truncate">
-            {selectedVariant
-              ? `${selectedVariant.color} • Nr ${selectedVariant.size}`
-              : placeholder}
-          </span>
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 20 20"
-            fill="none"
-            className="ml-3 h-4 w-4 shrink-0 text-slate-400"
-          >
-            <path
-              d="m5.75 7.75 4.25 4.5 4.25-4.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        {displayMode === "cards" ? (
+          disabled ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400">
+              {placeholder}
+            </div>
+          ) : colorGroups.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              {emptyLabel}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+              {colorGroups.map((group) => {
+                const selected = group.key === selectedColorKey;
 
-        {pickerOpen ? (
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    onClick={() => setActiveColorKey(group.key)}
+                    className={`overflow-hidden rounded-[18px] border text-left transition ${
+                      selected
+                        ? "border-emerald-300 bg-emerald-50 shadow-[0_14px_30px_rgba(16,185,129,0.12)]"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="aspect-[1/1] overflow-hidden bg-slate-100">
+                      {group.imagePath ? (
+                        <UploadedImage
+                          src={group.imagePath}
+                          alt={group.color}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                          IMG
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2.5 py-2.5">
+                      <p className="truncate text-[13px] font-semibold text-slate-950">
+                        {group.color}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {group.totalStock} ne stok
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )
+        ) : !hideTrigger ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (!disabled && colorGroups.length > 0) {
+                setHoverPreview(null);
+                setIsOpen((current) => !current);
+              }
+            }}
+            disabled={disabled}
+            className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+          >
+            <span className="truncate">
+              {selectedVariant
+                ? `${selectedVariant.color} • Nr ${selectedVariant.size}`
+                : placeholder}
+            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="none"
+              className="ml-3 h-4 w-4 shrink-0 text-slate-400"
+            >
+              <path
+                d="m5.75 7.75 4.25 4.5 4.25-4.5"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        ) : null}
+
+        {isOpen && displayMode === "dropdown" ? (
           <div
             ref={dropdownRef}
             className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
@@ -174,71 +254,70 @@ export function VariantColorPicker({
                     );
 
                     return (
-                      <div key={group.key}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHoverPreview(null);
-                            setPickerOpen(false);
-                            setActiveColorKey(group.key);
+                      <button
+                        key={group.key}
+                        type="button"
+                        onClick={() => {
+                          setHoverPreview(null);
+                          setIsOpen(false);
+                          setActiveColorKey(group.key);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                          selected
+                            ? "bg-emerald-50 text-slate-950"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                          onMouseEnter={(event) => {
+                            if (!group.imagePath || !dropdownRef.current) {
+                              return;
+                            }
+
+                            const imageRect =
+                              event.currentTarget.getBoundingClientRect();
+                            const dropdownRect =
+                              dropdownRef.current.getBoundingClientRect();
+
+                            setHoverPreview({
+                              imagePath: group.imagePath,
+                              color: group.color,
+                              top:
+                                imageRect.top -
+                                dropdownRect.top +
+                                imageRect.height / 2 -
+                                18,
+                              left:
+                                imageRect.left -
+                                dropdownRect.left +
+                                imageRect.width +
+                                8,
+                            });
                           }}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
-                            selected
-                              ? "bg-emerald-50 text-slate-950"
-                              : "hover:bg-slate-50"
-                          }`}
+                          onMouseLeave={() => setHoverPreview(null)}
                         >
-                          <span
-                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-                            onMouseEnter={(event) => {
-                              if (!group.imagePath || !dropdownRef.current) {
-                                return;
-                              }
-
-                              const imageRect =
-                                event.currentTarget.getBoundingClientRect();
-                              const dropdownRect =
-                                dropdownRef.current.getBoundingClientRect();
-
-                              setHoverPreview({
-                                imagePath: group.imagePath,
-                                color: group.color,
-                                top:
-                                  imageRect.top -
-                                  dropdownRect.top +
-                                  imageRect.height / 2 -
-                                  18,
-                                left:
-                                  imageRect.left -
-                                  dropdownRect.left +
-                                  imageRect.width +
-                                  8,
-                              });
-                            }}
-                            onMouseLeave={() => setHoverPreview(null)}
-                          >
-                            {group.imagePath ? (
-                              <UploadedImage
-                                src={group.imagePath}
-                                alt={group.color}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                                IMG
-                              </span>
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-slate-900">
-                              {group.color}
+                          {group.imagePath ? (
+                            <UploadedImage
+                              src={group.imagePath}
+                              alt={group.color}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                              IMG
                             </span>
-                            <span className="mt-0.5 block text-xs text-slate-500">
-                              {group.totalStock} ne stok
-                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-slate-900">
+                            {group.color}
                           </span>
-                        </button>
-                      </div>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            {group.totalStock} ne stok
+                          </span>
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -267,13 +346,147 @@ export function VariantColorPicker({
             ) : null}
           </div>
         ) : null}
+
+        {isOpen && displayMode === "modalCards" ? (
+          <div className="fixed inset-0 z-[115] flex items-end justify-center bg-slate-950/55 p-4 sm:items-center">
+            <button
+              type="button"
+              onClick={() => {
+                setHoverPreview(null);
+                setIsOpen(false);
+              }}
+              className="absolute inset-0"
+              aria-label="Mbyll zgjedhjen e ngjyres"
+            />
+            <div className="relative z-[116] flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  {onBack ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHoverPreview(null);
+                        setIsOpen(false);
+                        onBack();
+                      }}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+                      aria-label="Kthehu te modelet"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        className="h-4 w-4"
+                      >
+                        <path
+                          d="M12.75 4.75 7.5 10l5.25 5.25"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
+                  <div>
+                    <p className="text-lg font-semibold text-slate-950">
+                      Zgjidh ngjyren
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Zgjidh ngjyren dhe pastaj numrin
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoverPreview(null);
+                    setIsOpen(false);
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+                  aria-label="Mbyll"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className="h-4 w-4"
+                  >
+                    <path
+                      d="M6 6l8 8M14 6l-8 8"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {colorGroups.length === 0 ? (
+                <div className="px-5 py-10 text-center text-sm text-slate-500">
+                  {emptyLabel}
+                </div>
+              ) : (
+                <div className="overflow-y-auto p-4">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+                    {colorGroups.map((group) => {
+                      const selected = group.key === selectedColorKey;
+
+                      return (
+                        <button
+                          key={group.key}
+                          type="button"
+                          onClick={() => {
+                            setActiveColorKey(group.key);
+                          }}
+                          className={`overflow-hidden rounded-[18px] border text-left transition ${
+                            selected
+                              ? "border-emerald-300 bg-emerald-50 shadow-[0_14px_30px_rgba(16,185,129,0.12)]"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="aspect-[1/1] overflow-hidden bg-slate-100">
+                            {group.imagePath ? (
+                              <UploadedImage
+                                src={group.imagePath}
+                                alt={group.color}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                                IMG
+                              </div>
+                            )}
+                          </div>
+                          <div className="px-2.5 py-2.5">
+                            <p className="truncate text-[13px] font-semibold text-slate-950">
+                              {group.color}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              {group.totalStock} ne stok
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {activeColor ? (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/55 p-4 sm:items-center">
           <button
             type="button"
-            onClick={() => setActiveColorKey(null)}
+            onClick={() => {
+              if (displayMode === "modalCards") {
+                setIsOpen(true);
+              }
+              setActiveColorKey(null);
+            }}
             className="absolute inset-0"
             aria-label="Mbyll zgjedhjen e numrit"
           />
@@ -302,7 +515,12 @@ export function VariantColorPicker({
               </div>
               <button
                 type="button"
-                onClick={() => setActiveColorKey(null)}
+                onClick={() => {
+                  if (displayMode === "modalCards") {
+                    setIsOpen(true);
+                  }
+                  setActiveColorKey(null);
+                }}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
                 aria-label="Mbyll"
               >
