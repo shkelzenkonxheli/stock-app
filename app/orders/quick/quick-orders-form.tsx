@@ -77,7 +77,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   useEffect(() => {
     const productId = Number(selectedProductId);
 
-    if (!productId || variantsByProduct[productId]) {
+    if (!productId) {
       return;
     }
 
@@ -115,7 +115,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     return () => {
       isCancelled = true;
     };
-  }, [selectedProductId, variantsByProduct]);
+  }, [selectedProductId, colorPickerOpen]);
 
   useEffect(() => {
     if (Object.keys(rowErrors).length === 0) {
@@ -544,37 +544,47 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
               selectedRows.map(({ row, product, variant }) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-1 gap-5 py-4 md:grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_120px_120px_80px] md:items-center"
+                  className="grid grid-cols-1 gap-4 py-4 md:grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_120px_120px_80px] md:items-center"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="relative flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          variant.imagePath
+                            ? setLightboxImage({
+                                src: variant.imagePath,
+                                alt: `${product.name} | Nr ${variant.size} | ${variant.color}`,
+                              })
+                            : null
+                        }
+                        className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                      >
+                        {variant.imagePath ? (
+                          <UploadedImage
+                            src={variant.imagePath}
+                            alt={`${product.name} ${variant.color}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </button>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950">
+                          {product.name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {product.brand}
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        variant.imagePath
-                          ? setLightboxImage({
-                              src: variant.imagePath,
-                              alt: `${product.name} | Nr ${variant.size} | ${variant.color}`,
-                            })
-                          : null
-                      }
-                      className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                      onClick={() => removeRow(row.id)}
+                      className="absolute right-0 top-0 rounded-xl px-2 py-1 text-lg leading-none text-rose-500 transition hover:bg-rose-50 md:hidden"
+                      aria-label="Hiq"
                     >
-                      {variant.imagePath ? (
-                        <UploadedImage
-                          src={variant.imagePath}
-                          alt={`${product.name} ${variant.color}`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
+                      ×
                     </button>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-950">
-                        {product.name}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {product.brand}
-                      </p>
-                    </div>
                   </div>
 
                   <div>
@@ -607,7 +617,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                     </button>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="hidden justify-end md:flex">
                     <button
                       type="button"
                       onClick={() => removeRow(row.id)}

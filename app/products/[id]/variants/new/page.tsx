@@ -139,10 +139,8 @@ async function createVariants(formData: FormData) {
     }
   }
 
-  const existingKeys = new Set(
-    existingProductVariants.map(
-      (variant) => `${variant.size}::${variant.color.toLowerCase()}`,
-    ),
+  const existingColors = new Set(
+    existingProductVariants.map((variant) => variant.color.trim().toLowerCase()),
   );
   const usedSkus = new Set(
     existingVariantCodes
@@ -181,7 +179,7 @@ async function createVariants(formData: FormData) {
   }
 
   const alreadyExistingRows = normalizedRows.filter((row) =>
-    existingKeys.has(`${row.size}::${row.color.toLowerCase()}`),
+    existingColors.has(row.color.trim().toLowerCase()),
   );
 
   if (alreadyExistingRows.length > 0) {
@@ -189,7 +187,7 @@ async function createVariants(formData: FormData) {
 
     redirect(
       `/products/${productId}/variants/new?error=${encodeURIComponent(
-        `Varianti Nr ${firstExisting.size} / ${firstExisting.color} ekziston tashme per kete produkt.`,
+        `Ngjyra ${firstExisting.color} ekziston tashme per kete produkt. Per numra te rinj perdor menaxhimin e stokut.`,
       )}`,
     );
   }

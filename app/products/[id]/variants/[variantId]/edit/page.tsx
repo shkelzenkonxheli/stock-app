@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import {
   ProductImageUploadError,
@@ -133,10 +134,26 @@ async function updateVariant(formData: FormData) {
       },
     },
     select: {
+      size: true,
+      color: true,
       sku: true,
       barcode: true,
     },
   });
+
+  const duplicateVariant = otherVariants.find(
+    (item) =>
+      item.size.trim() === size &&
+      item.color.trim().toLowerCase() === color.toLowerCase(),
+  );
+
+  if (duplicateVariant) {
+    redirect(
+      `/products/${productId}/variants/${variantId}/edit?error=${encodeURIComponent(
+        `Varianti Nr ${size} / ${color} ekziston tashme per kete produkt.`,
+      )}`,
+    );
+  }
 
   const usedSkus = new Set(
     otherVariants
@@ -160,7 +177,11 @@ async function updateVariant(formData: FormData) {
   const nextBarcode = barcode ?? buildBarcodeFromVariantId(variant.id);
 
   if (usedBarcodes.has(nextBarcode)) {
-    return;
+    redirect(
+      `/products/${productId}/variants/${variantId}/edit?error=${encodeURIComponent(
+        "Ky barcode ekziston tashme te nje variant tjeter.",
+      )}`,
+    );
   }
 
   await prisma.variant.update({
@@ -242,6 +263,14 @@ export default async function EditVariantPage({
             </Link>
           </div>
         </div>
+
+        {errorMessage ? (
+          <FlashMessage
+            type="error"
+            text={errorMessage}
+            className="mt-6 rounded-2xl px-4 py-3 text-sm"
+          />
+        ) : null}
 
         <VariantImageUploadForm
           action={uploadVariantImage}

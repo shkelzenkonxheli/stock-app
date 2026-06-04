@@ -95,15 +95,21 @@ export function VariantColorPicker({
       }
     }
 
-    return [...map.values()].map((group) => ({
-      ...group,
-      variants: [...group.variants].sort((a, b) =>
-        a.size.localeCompare(b.size, "sq", {
-          numeric: true,
+    return [...map.values()]
+      .map((group) => ({
+        ...group,
+        variants: [...group.variants].sort((a, b) =>
+          a.size.localeCompare(b.size, "sq", {
+            numeric: true,
+            sensitivity: "base",
+          }),
+        ),
+      }))
+      .sort((a, b) =>
+        a.color.localeCompare(b.color, "sq", {
           sensitivity: "base",
         }),
-      ),
-    }));
+      );
   }, [variants]);
 
   const selectedVariant =
