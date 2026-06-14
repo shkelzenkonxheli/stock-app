@@ -6,6 +6,10 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuickOrdersForm } from "./quick-orders-form";
 
+export const metadata = {
+  title: "Porosi te Shpejta",
+};
+
 type QuickOrdersPageProps = {
   searchParams?: Promise<{
     error?: string;

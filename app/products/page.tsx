@@ -8,6 +8,10 @@ import { prisma } from "@/lib/prisma";
 import { ProductsFilters } from "./products-filters";
 import { ProductStockQuickView } from "./product-stock-quick-view";
 
+export const metadata = {
+  title: "Produktet",
+};
+
 const PAGE_SIZE = 20;
 
 type ProductsPageProps = {

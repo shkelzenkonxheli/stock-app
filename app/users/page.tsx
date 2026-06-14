@@ -9,6 +9,10 @@ import { AddUserModal } from "./add-user-modal";
 import { EditUserModal } from "./edit-user-modal";
 import { ResetPasswordModal } from "./reset-password-modal";
 
+export const metadata = {
+  title: "Userat",
+};
+
 type UsersPageProps = {
   searchParams?: Promise<{
     error?: string;

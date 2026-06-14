@@ -16,6 +16,10 @@ import {
 } from "@/lib/variant-codes";
 import { VariantRowsForm } from "./variant-rows-form";
 
+export const metadata = {
+  title: "Shto Variante",
+};
+
 type NewProductVariantPageProps = {
   params: Promise<{
     id: string;

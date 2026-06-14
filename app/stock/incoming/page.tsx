@@ -6,6 +6,10 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IncomingStockForm } from "./incoming-stock-form";
 
+export const metadata = {
+  title: "Hyrje Stoku",
+};
+
 type IncomingStockPageProps = {
   searchParams?: Promise<{
     error?: string;

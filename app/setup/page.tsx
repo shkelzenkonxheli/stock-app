@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { createSession, getCurrentUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 
+export const metadata = {
+  title: "Setup",
+};
+
 type SetupPageProps = {
   searchParams?: Promise<{
     error?: string;

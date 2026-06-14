@@ -16,6 +16,10 @@ import {
 } from "@/lib/variant-codes";
 import { VariantImageUploadForm } from "./variant-image-upload-form";
 
+export const metadata = {
+  title: "Edito Variantin",
+};
+
 type EditVariantPageProps = {
   params: Promise<{
     id: string;

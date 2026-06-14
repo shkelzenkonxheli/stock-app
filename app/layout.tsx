@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -18,8 +18,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Stock App",
+  title: {
+    default: "Stock App",
+    template: "%s | Stock App",
+  },
   description: "Sneaker stock and order management",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon",
+    apple: "/apple-icon",
+    shortcut: "/icon",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Stock App",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 function roleLabel(role: string) {

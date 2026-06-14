@@ -5,6 +5,10 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OrderForm } from "./order-form";
 
+export const metadata = {
+  title: "Porosi Normale",
+};
+
 type NewOrderPageProps = {
   searchParams?: Promise<{
     error?: string;

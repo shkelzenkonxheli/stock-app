@@ -6,6 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { OrdersFilters } from "./orders-filters";
 import { OrdersManager } from "./orders-manager";
 
+export const metadata = {
+  title: "Porosite",
+};
+
 const PAGE_SIZE = 20;
 const BUSINESS_TIME_ZONE = "Europe/Belgrade";
 

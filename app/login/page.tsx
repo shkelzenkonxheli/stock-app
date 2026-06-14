@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { createSession, getCurrentUser } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 
+export const metadata = {
+  title: "Login",
+};
+
 type LoginPageProps = {
   searchParams?: Promise<{
     error?: string;

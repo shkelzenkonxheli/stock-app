@@ -9,6 +9,10 @@ import {
   getMonthlySalesReport,
 } from "@/lib/reports/monthly-sales-report";
 
+export const metadata = {
+  title: "Raportet",
+};
+
 type ReportsPageProps = {
   searchParams?: Promise<{
     month?: string;

@@ -5,6 +5,10 @@ import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const metadata = {
+  title: "Shto Produkt",
+};
+
 async function createProduct(formData: FormData) {
   "use server";
 

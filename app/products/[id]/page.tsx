@@ -7,6 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
 
+export const metadata = {
+  title: "Detajet e Produktit",
+};
+
 type ProductDetailsPageProps = {
   params: Promise<{
     id: string;

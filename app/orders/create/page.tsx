@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { hasRole, requireUser } from "@/lib/auth";
 
+export const metadata = {
+  title: "Zgjidh Llojin e Porosise",
+};
+
 export default async function OrderCreateChoicePage() {
   const currentUser = await requireUser();
   const canCreateOrders = hasRole(currentUser, ["SUPER_ADMIN", "SELLER"]);

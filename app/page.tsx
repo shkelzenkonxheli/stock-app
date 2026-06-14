@@ -3,6 +3,10 @@ import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 
+export const metadata = {
+  title: "Dashboard",
+};
+
 const BUSINESS_TIME_ZONE = "Europe/Belgrade";
 
 type ActionTile = {
