@@ -2,10 +2,12 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDefaultWarehouse } from "@/lib/warehouses";
 
 type SetStockPayload = {
   productId?: number;
   variantId?: number;
+  warehouseId?: number | null;
   stock?: number;
 };
 
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
 
   const productId = Number(payload.productId);
   const variantId = Number(payload.variantId);
+  const requestedWarehouseId = Number(payload.warehouseId);
   const stock = Number(payload.stock);
 
   if (
@@ -53,10 +56,57 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Varianti nuk u gjet." }, { status: 404 });
   }
 
-  await prisma.variant.update({
-    where: { id: variantId },
-    data: { stock },
+  const defaultWarehouse = await getDefaultWarehouse();
+  const warehouseId =
+    Number.isInteger(requestedWarehouseId) && requestedWarehouseId > 0
+      ? requestedWarehouseId
+      : defaultWarehouse?.id;
+
+  if (!warehouseId) {
+    return NextResponse.json({ error: "Depoja nuk u gjet." }, { status: 400 });
+  }
+
+  const currentLevel = await prisma.stockLevel.findUnique({
+    where: {
+      variantId_warehouseId: {
+        variantId,
+        warehouseId,
+      },
+    },
+    select: {
+      quantity: true,
+    },
   });
+
+  const currentWarehouseStock = currentLevel?.quantity ?? 0;
+  const delta = stock - currentWarehouseStock;
+
+  await prisma.$transaction([
+    prisma.variant.update({
+      where: { id: variantId },
+      data: {
+        stock: {
+          increment: delta,
+        },
+      },
+    }),
+    prisma.stockLevel.upsert({
+      where: {
+        variantId_warehouseId: {
+          variantId,
+          warehouseId,
+        },
+      },
+      update: {
+        quantity: stock,
+      },
+      create: {
+        variantId,
+        warehouseId,
+        quantity: stock,
+      },
+    }),
+  ]);
 
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);

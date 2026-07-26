@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveWarehouses, getDefaultWarehouse } from "@/lib/warehouses";
 import { OrderForm } from "./order-form";
 
 export const metadata = {
@@ -30,8 +31,9 @@ async function createOrder(formData: FormData) {
   const phone = formData.get("phone")?.toString().trim();
   const instagram = formData.get("instagram")?.toString().trim();
   const notes = formData.get("notes")?.toString().trim();
+  const requestedWarehouseId = Number(formData.get("warehouseId"));
 
-  if (!source || !itemsRaw || !customerName || !phone) {
+  if (!source || !itemsRaw || !customerName || !phone || !requestedWarehouseId) {
     redirect("/orders/new?error=validation");
   }
 
@@ -72,10 +74,31 @@ async function createOrder(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.findUnique({
+      where: { id: requestedWarehouseId },
+      select: { id: true, active: true },
+    });
+
+    if (!warehouse?.active) {
+      return { ok: false as const, reason: "warehouse" };
+    }
+
     const variants = await tx.variant.findMany({
       where: {
+        active: true,
         id: {
           in: items.map((item) => item.variantId),
+        },
+      },
+      select: {
+        id: true,
+        productId: true,
+        stock: true,
+        stockLevels: {
+          where: { warehouseId: requestedWarehouseId },
+          select: {
+            quantity: true,
+          },
         },
       },
     });
@@ -95,7 +118,9 @@ async function createOrder(formData: FormData) {
         return { ok: false as const, reason: "variant" };
       }
 
-      if (variant.stock < item.quantity) {
+      const warehouseStock = variant.stockLevels[0]?.quantity ?? 0;
+
+      if (warehouseStock < item.quantity) {
         return { ok: false as const, reason: "stock" };
       }
     }
@@ -109,6 +134,7 @@ async function createOrder(formData: FormData) {
         phone,
         instagram: instagram || null,
         source,
+        warehouseId: requestedWarehouseId,
         notes: notes || null,
         status: "DONE",
         quantity: totalQuantity,
@@ -125,6 +151,20 @@ async function createOrder(formData: FormData) {
     });
 
     for (const item of items) {
+      await tx.stockLevel.update({
+        where: {
+          variantId_warehouseId: {
+            variantId: item.variantId,
+            warehouseId: requestedWarehouseId,
+          },
+        },
+        data: {
+          quantity: {
+            decrement: item.quantity,
+          },
+        },
+      });
+
       await tx.variant.update({
         where: { id: item.variantId },
         data: {
@@ -165,6 +205,8 @@ function getErrorMessage(error?: string) {
       return "Varianti i zgjedhur nuk ekziston me.";
     case "validation":
       return "Ploteso fushat kryesore para se te ruash porosine.";
+    case "warehouse":
+      return "Zgjidh nje depo aktive para se te ruash porosine.";
     default:
       return null;
   }
@@ -178,34 +220,46 @@ export default async function NewOrderPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
 
-  const products = await prisma.product.findMany({
-    where: {
-      variants: {
-        some: {
-          stock: {
-            gt: 0,
+  const [products, warehouses, defaultWarehouse] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        variants: {
+          some: {
+            active: true,
+            stock: {
+              gt: 0,
+            },
           },
         },
       },
-    },
-    select: {
-      id: true,
-      name: true,
-      brand: true,
-      variants: {
-        where: {
-          imagePath: {
-            not: null,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        variants: {
+          where: {
+            active: true,
+          },
+          select: {
+            imagePath: true,
+            stockLevels: {
+              where: {
+                quantity: {
+                  gt: 0,
+                },
+              },
+              select: {
+                warehouseId: true,
+              },
+            },
           },
         },
-        select: {
-          imagePath: true,
-        },
-        take: 1,
       },
-    },
-    orderBy: [{ name: "asc" }, { brand: "asc" }],
-  });
+      orderBy: [{ name: "asc" }, { brand: "asc" }],
+    }),
+    getActiveWarehouses(),
+    getDefaultWarehouse(),
+  ]);
 
   return (
     <main className="px-4 py-6 sm:px-6 lg:px-8">
@@ -231,11 +285,25 @@ export default async function NewOrderPage({
 
         <OrderForm
           action={createOrder}
+          warehouses={warehouses.map((warehouse) => ({
+            id: warehouse.id,
+            name: warehouse.name,
+          }))}
+          defaultWarehouseId={defaultWarehouse?.id ?? warehouses[0]?.id ?? null}
           products={products.map((product) => ({
             id: product.id,
             name: product.name,
             brand: product.brand,
-            imagePath: product.variants[0]?.imagePath ?? null,
+            imagePath:
+              product.variants.find((variant) => variant.imagePath)?.imagePath ??
+              null,
+            warehouseIds: [
+              ...new Set(
+                product.variants.flatMap((variant) =>
+                  variant.stockLevels.map((level) => level.warehouseId),
+                ),
+              ),
+            ],
           }))}
         />
       </div>

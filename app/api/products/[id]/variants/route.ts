@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveWarehouseStock } from "@/lib/stock-levels";
 
 type RouteContext = {
   params: Promise<{
@@ -8,7 +9,7 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser || !hasRole(currentUser, ["SUPER_ADMIN", "SELLER"])) {
@@ -17,6 +18,8 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   const productId = Number(id);
+  const { searchParams } = new URL(request.url);
+  const warehouseId = Number(searchParams.get("warehouseId")) || null;
 
   if (Number.isNaN(productId) || productId <= 0) {
     return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
@@ -25,9 +28,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const variants = await prisma.variant.findMany({
     where: {
       productId,
-      stock: {
-        gt: 0,
-      },
+      active: true,
     },
     select: {
       id: true,
@@ -36,6 +37,17 @@ export async function GET(_request: Request, context: RouteContext) {
       color: true,
       imagePath: true,
       stock: true,
+      ...(warehouseId
+        ? {
+            stockLevels: {
+              where: { warehouseId },
+              select: {
+                warehouseId: true,
+                quantity: true,
+              },
+            },
+          }
+        : {}),
       price: true,
       product: {
         select: {
@@ -48,15 +60,25 @@ export async function GET(_request: Request, context: RouteContext) {
   });
 
   return NextResponse.json(
-    variants.map((variant) => ({
-      id: variant.id,
-      productId: variant.productId,
-      productLabel: `${variant.product.name} | ${variant.product.brand}`,
-      size: variant.size,
-      color: variant.color,
-      imagePath: variant.imagePath,
-      stock: variant.stock,
-      price: Number(variant.price),
-    })),
+    variants
+      .map((variant) => {
+        const stock = resolveWarehouseStock(
+          Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+          variant.stock,
+          warehouseId,
+        );
+
+        return {
+          id: variant.id,
+          productId: variant.productId,
+          productLabel: `${variant.product.name} | ${variant.product.brand}`,
+          size: variant.size,
+          color: variant.color,
+          imagePath: variant.imagePath,
+          stock,
+          price: Number(variant.price),
+        };
+      })
+      .filter((variant) => variant.stock > 0),
   );
 }

@@ -7,16 +7,20 @@ type ProductsFiltersProps = {
   searchQuery: string;
   selectedBrand: string;
   selectedModel: string;
+  selectedWarehouse: string;
   brands: string[];
   models: string[];
+  warehouses: Array<{ id: number; name: string }>;
 };
 
 export function ProductsFilters({
   searchQuery,
   selectedBrand,
   selectedModel,
+  selectedWarehouse,
   brands,
   models,
+  warehouses,
 }: ProductsFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -25,6 +29,7 @@ export function ProductsFilters({
   const [query, setQuery] = useState(searchQuery);
   const [brand, setBrand] = useState(selectedBrand);
   const [model, setModel] = useState(selectedModel);
+  const [warehouse, setWarehouse] = useState(selectedWarehouse);
 
   const filteredModels = brand
     ? [
@@ -43,7 +48,12 @@ export function ProductsFilters({
       ];
 
   const updateFilters = useCallback(
-    (nextQuery: string, nextBrand: string, nextModel: string) => {
+    (
+      nextQuery: string,
+      nextBrand: string,
+      nextModel: string,
+      nextWarehouse: string,
+    ) => {
       const params = new URLSearchParams(searchParams.toString());
 
       params.delete("page");
@@ -66,6 +76,12 @@ export function ProductsFilters({
         params.delete("model");
       }
 
+      if (nextWarehouse.trim()) {
+        params.set("warehouse", nextWarehouse.trim());
+      } else {
+        params.delete("warehouse");
+      }
+
       const nextUrl = params.toString()
         ? `${pathname}?${params.toString()}`
         : pathname;
@@ -79,17 +95,22 @@ export function ProductsFilters({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    updateFilters(query, brand, model);
+    updateFilters(query, brand, model, warehouse);
   };
 
-  const applySelectFilters = (nextBrand: string, nextModel: string) => {
-    updateFilters(query, nextBrand, nextModel);
+  const applySelectFilters = (
+    nextBrand: string,
+    nextModel: string,
+    nextWarehouse: string,
+  ) => {
+    updateFilters(query, nextBrand, nextModel, nextWarehouse);
   };
 
   const handleReset = () => {
     setQuery("");
     setBrand("");
     setModel("");
+    setWarehouse("");
 
     startTransition(() => {
       router.replace(pathname);
@@ -98,7 +119,7 @@ export function ProductsFilters({
 
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_220px_220px_140px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_220px_220px_220px_140px]">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <svg
@@ -130,7 +151,7 @@ export function ProductsFilters({
             const nextBrand = event.target.value;
             setBrand(nextBrand);
             setModel("");
-            applySelectFilters(nextBrand, "");
+            applySelectFilters(nextBrand, "", warehouse);
           }}
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
         >
@@ -147,7 +168,7 @@ export function ProductsFilters({
           onChange={(event) => {
             const nextModel = event.target.value;
             setModel(nextModel);
-            applySelectFilters(brand, nextModel);
+            applySelectFilters(brand, nextModel, warehouse);
           }}
           disabled={filteredModels.length === 0}
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
@@ -156,6 +177,23 @@ export function ProductsFilters({
           {filteredModels.map((modelOption) => (
             <option key={modelOption} value={modelOption}>
               {modelOption}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={warehouse}
+          onChange={(event) => {
+            const nextWarehouse = event.target.value;
+            setWarehouse(nextWarehouse);
+            applySelectFilters(brand, model, nextWarehouse);
+          }}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+        >
+          <option value="">Te gjitha depot</option>
+          {warehouses.map((warehouseOption) => (
+            <option key={warehouseOption.id} value={String(warehouseOption.id)}>
+              {warehouseOption.name}
             </option>
           ))}
         </select>

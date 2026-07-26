@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveWarehouses, getDefaultWarehouse } from "@/lib/warehouses";
 import { IncomingStockForm } from "./incoming-stock-form";
 
 export const metadata = {
@@ -20,16 +21,17 @@ type IncomingStockPageProps = {
 async function createIncomingStock(formData: FormData) {
   "use server";
 
-  await requireRole(["SUPER_ADMIN"]);
+  await requireRole(["SUPER_ADMIN", "WAREHOUSE"]);
 
   const productId = Number(formData.get("productId"));
+  const warehouseId = Number(formData.get("warehouseId"));
   const reason =
     formData.get("reason")?.toString() === "CUSTOMER_RETURN"
       ? "CUSTOMER_RETURN"
       : "INCOMING_STOCK";
   const adjustmentsRaw = formData.get("adjustments")?.toString();
 
-  if (!productId || !adjustmentsRaw) {
+  if (!productId || !warehouseId || !adjustmentsRaw) {
     redirect("/stock/incoming?error=validation");
   }
 
@@ -73,6 +75,15 @@ async function createIncomingStock(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.findUnique({
+      where: { id: warehouseId },
+      select: { id: true, active: true },
+    });
+
+    if (!warehouse?.active) {
+      return { ok: false as const };
+    }
+
     const variants = await tx.variant.findMany({
       where: {
         productId,
@@ -98,11 +109,31 @@ async function createIncomingStock(formData: FormData) {
           },
         },
       });
+
+      await tx.stockLevel.upsert({
+        where: {
+          variantId_warehouseId: {
+            variantId: adjustment.variantId,
+            warehouseId,
+          },
+        },
+        update: {
+          quantity: {
+            increment: adjustment.quantity,
+          },
+        },
+        create: {
+          variantId: adjustment.variantId,
+          warehouseId,
+          quantity: adjustment.quantity,
+        },
+      });
     }
 
     await tx.stockMovement.createMany({
       data: adjustments.map((adjustment) => ({
         variantId: adjustment.variantId,
+        warehouseId,
         quantity: adjustment.quantity,
         reason,
       })),
@@ -163,7 +194,7 @@ const reasonStyles: Record<"INCOMING_STOCK" | "CUSTOMER_RETURN", string> = {
 export default async function IncomingStockPage({
   searchParams,
 }: IncomingStockPageProps) {
-  await requireRole(["SUPER_ADMIN"]);
+  await requireRole(["SUPER_ADMIN", "WAREHOUSE"]);
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const message = getMessage(
@@ -171,7 +202,8 @@ export default async function IncomingStockPage({
     resolvedSearchParams?.success,
   );
 
-  const [products, recentMovements] = await Promise.all([
+  const defaultWarehouse = await getDefaultWarehouse();
+  const [products, recentMovements, warehouses] = await Promise.all([
     prisma.product.findMany({
       where: {
         variants: {
@@ -192,9 +224,15 @@ export default async function IncomingStockPage({
       take: 20,
       select: {
         id: true,
+        warehouseId: true,
         quantity: true,
         reason: true,
         createdAt: true,
+        warehouse: {
+          select: {
+            name: true,
+          },
+        },
         variant: {
           select: {
             size: true,
@@ -209,6 +247,7 @@ export default async function IncomingStockPage({
         },
       },
     }),
+    getActiveWarehouses(),
   ]);
 
   const dateTimeFormatter = new Intl.DateTimeFormat("sq-AL", {
@@ -267,6 +306,10 @@ export default async function IncomingStockPage({
             name: product.name,
             brand: product.brand,
           }))}
+          warehouses={warehouses.map((warehouse) => ({
+            id: warehouse.id,
+            name: warehouse.name,
+          }))}
         />
 
         <section className="mt-10">
@@ -314,7 +357,8 @@ export default async function IncomingStockPage({
                       <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                         <th className="px-4 py-3.5">Produkti</th>
                         <th className="px-4 py-3.5">Varianti</th>
-                        <th className="px-4 py-3.5">Arsyeja</th>
+                       <th className="px-4 py-3.5">Arsyeja</th>
+                        <th className="px-4 py-3.5">Depoja</th>
                         <th className="px-4 py-3.5 text-right">Sasia</th>
                         <th className="px-4 py-3.5 text-right">Koha</th>
                       </tr>
@@ -342,6 +386,9 @@ export default async function IncomingStockPage({
                             >
                               {reasonLabels[movement.reason]}
                             </span>
+                          </td>
+                          <td className="px-4 py-4 text-slate-700">
+                            {movement.warehouse?.name || defaultWarehouse?.name || "-"}
                           </td>
                           <td className="px-4 py-4 text-right">
                             <span className="font-semibold text-emerald-600">

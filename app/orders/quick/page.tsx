@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { FlashMessage } from "@/app/components/flash-message";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveWarehouses, getDefaultWarehouse } from "@/lib/warehouses";
 import { QuickOrdersForm } from "./quick-orders-form";
 
 export const metadata = {
@@ -27,8 +28,9 @@ async function createQuickOrders(formData: FormData) {
     | "WHOLESALE"
     | undefined;
   const rowsRaw = formData.get("rows")?.toString();
+  const requestedWarehouseId = Number(formData.get("warehouseId"));
 
-  if (!source || !rowsRaw) {
+  if (!source || !rowsRaw || !requestedWarehouseId) {
     redirect("/orders/quick?error=validation");
   }
 
@@ -90,8 +92,18 @@ async function createQuickOrders(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.findUnique({
+      where: { id: requestedWarehouseId },
+      select: { id: true, active: true },
+    });
+
+    if (!warehouse?.active) {
+      return { ok: false as const, reason: "warehouse" };
+    }
+
     const variants = await tx.variant.findMany({
       where: {
+        active: true,
         id: {
           in: [...requestedByVariant.keys()],
         },
@@ -100,6 +112,12 @@ async function createQuickOrders(formData: FormData) {
         id: true,
         stock: true,
         productId: true,
+        stockLevels: {
+          where: { warehouseId: requestedWarehouseId },
+          select: {
+            quantity: true,
+          },
+        },
       },
     });
 
@@ -111,8 +129,9 @@ async function createQuickOrders(formData: FormData) {
 
     for (const [variantId, quantity] of requestedByVariant.entries()) {
       const variant = variantsById.get(variantId);
+      const warehouseStock = variant?.stockLevels[0]?.quantity ?? 0;
 
-      if (!variant || variant.stock < quantity) {
+      if (!variant || warehouseStock < quantity) {
         return { ok: false as const, reason: "stock" };
       }
     }
@@ -124,6 +143,7 @@ async function createQuickOrders(formData: FormData) {
           phone: "-",
           instagram: null,
           source,
+          warehouseId: requestedWarehouseId,
           status: "DONE",
           quantity: row.quantity,
           variantId: row.variantId,
@@ -138,6 +158,20 @@ async function createQuickOrders(formData: FormData) {
     }
 
     for (const [variantId, quantity] of requestedByVariant.entries()) {
+      await tx.stockLevel.update({
+        where: {
+          variantId_warehouseId: {
+            variantId,
+            warehouseId: requestedWarehouseId,
+          },
+        },
+        data: {
+          quantity: {
+            decrement: quantity,
+          },
+        },
+      });
+
       await tx.variant.update({
         where: { id: variantId },
         data: {
@@ -178,6 +212,8 @@ function getErrorMessage(error?: string) {
       return "Nje nga variantet nuk ekziston me.";
     case "validation":
       return "Ploteso variantin dhe nje sasi valide per cdo rresht qe don te ruash.";
+    case "warehouse":
+      return "Zgjidh nje depo aktive para se te ruash porosine.";
     default:
       return null;
   }
@@ -191,34 +227,46 @@ export default async function QuickOrdersPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
 
-  const products = await prisma.product.findMany({
-    where: {
-      variants: {
-        some: {
-          stock: {
-            gt: 0,
+  const [products, warehouses, defaultWarehouse] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        variants: {
+          some: {
+            active: true,
+            stock: {
+              gt: 0,
+            },
           },
         },
       },
-    },
-    select: {
-      id: true,
-      name: true,
-      brand: true,
-      variants: {
-        where: {
-          imagePath: {
-            not: null,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        variants: {
+          where: {
+            active: true,
+          },
+          select: {
+            imagePath: true,
+            stockLevels: {
+              where: {
+                quantity: {
+                  gt: 0,
+                },
+              },
+              select: {
+                warehouseId: true,
+              },
+            },
           },
         },
-        select: {
-          imagePath: true,
-        },
-        take: 1,
       },
-    },
-    orderBy: [{ name: "asc" }, { brand: "asc" }],
-  });
+      orderBy: [{ name: "asc" }, { brand: "asc" }],
+    }),
+    getActiveWarehouses(),
+    getDefaultWarehouse(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfccb_0%,transparent_20%),radial-gradient(circle_at_top_right,#dbeafe_0%,transparent_24%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -259,11 +307,25 @@ export default async function QuickOrdersPage({
 
         <QuickOrdersForm
           action={createQuickOrders}
+          warehouses={warehouses.map((warehouse) => ({
+            id: warehouse.id,
+            name: warehouse.name,
+          }))}
+          defaultWarehouseId={defaultWarehouse?.id ?? warehouses[0]?.id ?? null}
           products={products.map((product) => ({
             id: product.id,
             name: product.name,
             brand: product.brand,
-            imagePath: product.variants[0]?.imagePath ?? null,
+            imagePath:
+              product.variants.find((variant) => variant.imagePath)?.imagePath ??
+              null,
+            warehouseIds: [
+              ...new Set(
+                product.variants.flatMap((variant) =>
+                  variant.stockLevels.map((level) => level.warehouseId),
+                ),
+              ),
+            ],
           }))}
         />
       </section>

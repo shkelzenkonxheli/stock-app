@@ -10,6 +10,11 @@ type ProductOption = {
   brand: string;
 };
 
+type WarehouseOption = {
+  id: number;
+  name: string;
+};
+
 type InventoryVariant = {
   id: number;
   productId: number;
@@ -24,13 +29,18 @@ type InventoryVariant = {
 type IncomingStockFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   products: ProductOption[];
+  warehouses: WarehouseOption[];
 };
 
 export function IncomingStockForm({
   action,
   products,
+  warehouses,
 }: IncomingStockFormProps) {
   const [productId, setProductId] = useState("");
+  const [warehouseId, setWarehouseId] = useState(
+    warehouses[0] ? String(warehouses[0].id) : "",
+  );
   const [reason, setReason] = useState("INCOMING_STOCK");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -54,8 +64,12 @@ export function IncomingStockForm({
       setLoading(true);
 
       try {
+        const params = new URLSearchParams();
+        if (warehouseId) {
+          params.set("warehouseId", warehouseId);
+        }
         const response = await fetch(
-          `/api/products/${parsedProductId}/inventory-variants`,
+          `/api/products/${parsedProductId}/inventory-variants?${params.toString()}`,
           {
             cache: "no-store",
           },
@@ -87,7 +101,7 @@ export function IncomingStockForm({
     return () => {
       isCancelled = true;
     };
-  }, [productId]);
+  }, [productId, warehouseId]);
 
   const serializedAdjustments = JSON.stringify(
     Object.entries(quantities)
@@ -173,10 +187,11 @@ export function IncomingStockForm({
   return (
     <form action={action} className="mt-8 space-y-6">
       <input type="hidden" name="productId" value={productId} />
+      <input type="hidden" name="warehouseId" value={warehouseId} />
       <input type="hidden" name="adjustments" value={serializedAdjustments} />
 
       <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 lg:grid-cols-5">
           <label className="space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Arsyeja
@@ -249,6 +264,25 @@ export function IncomingStockForm({
               {colors.map((color) => (
                 <option key={color} value={color}>
                   {color}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Depoja
+            </span>
+            <select
+              id="warehouseId"
+              name="warehouseIdSelect"
+              value={warehouseId}
+              onChange={(event) => setWarehouseId(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+            >
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
                 </option>
               ))}
             </select>

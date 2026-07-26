@@ -3,6 +3,16 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function getTodayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
 export async function POST(request: Request) {
   const currentUser = await getCurrentUser();
 
@@ -28,6 +38,7 @@ export async function POST(request: Request) {
   const variants = await prisma.variant.findMany({
     where: {
       productId,
+      active: true,
       color: {
         equals: color,
         mode: "insensitive",
@@ -45,39 +56,17 @@ export async function POST(request: Request) {
 
   const variantIds = variants.map((variant) => variant.id);
 
-  const [linkedOrdersCount, linkedOrderItemsCount] = await Promise.all([
-    prisma.order.count({
+  await prisma.$transaction(async (tx) => {
+    await tx.variant.updateMany({
       where: {
-        variantId: {
+        id: {
           in: variantIds,
         },
       },
-    }),
-    prisma.orderItem.count({
-      where: {
-        variantId: {
-          in: variantIds,
-        },
+      data: {
+        active: false,
       },
-    }),
-  ]);
-
-  if (linkedOrdersCount > 0 || linkedOrderItemsCount > 0) {
-    return NextResponse.json(
-      {
-        error:
-          "Kjo ngjyre nuk mund te fshihet sepse ka porosi ose histori te lidhur.",
-      },
-      { status: 409 },
-    );
-  }
-
-  await prisma.variant.deleteMany({
-    where: {
-      id: {
-        in: variantIds,
-      },
-    },
+    });
   });
 
   revalidatePath("/products");
@@ -85,6 +74,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    deletedVariantIds: variantIds,
+    archivedVariantIds: variantIds,
   });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveWarehouseStock } from "@/lib/stock-levels";
 
 type RouteContext = {
   params: Promise<{
@@ -8,15 +9,18 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const currentUser = await getCurrentUser();
 
-  if (!currentUser || !hasRole(currentUser, ["SUPER_ADMIN"])) {
+  if (!currentUser || !hasRole(currentUser, ["SUPER_ADMIN", "WAREHOUSE"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await context.params;
   const productId = Number(id);
+  const { searchParams } = new URL(request.url);
+  const warehouseIdParam = searchParams.get("warehouseId");
+  const warehouseId = warehouseIdParam ? Number(warehouseIdParam) : null;
 
   if (Number.isNaN(productId) || productId <= 0) {
     return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
@@ -33,6 +37,17 @@ export async function GET(_request: Request, context: RouteContext) {
       color: true,
       imagePath: true,
       stock: true,
+      ...(warehouseId
+        ? {
+            stockLevels: {
+              where: { warehouseId },
+              select: {
+                warehouseId: true,
+                quantity: true,
+              },
+            },
+          }
+        : {}),
       price: true,
       product: {
         select: {
@@ -52,7 +67,11 @@ export async function GET(_request: Request, context: RouteContext) {
       size: variant.size,
       color: variant.color,
       imagePath: variant.imagePath,
-      stock: variant.stock,
+      stock: resolveWarehouseStock(
+        Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+        variant.stock,
+        warehouseId,
+      ),
       price: Number(variant.price),
     })),
   );

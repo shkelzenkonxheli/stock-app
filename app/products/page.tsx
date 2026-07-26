@@ -5,8 +5,10 @@ import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD, getStockTone } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
+import { resolveWarehouseStock } from "@/lib/stock-levels";
+import { getActiveWarehouses } from "@/lib/warehouses";
 import { ProductsFilters } from "./products-filters";
-import { ProductStockQuickView } from "./product-stock-quick-view";
+import { ProductStockQuickViewClient } from "./product-stock-quick-view-client";
 
 export const metadata = {
   title: "Produktet",
@@ -20,6 +22,7 @@ type ProductsPageProps = {
     q?: string;
     brand?: string;
     model?: string;
+    warehouse?: string;
   }>;
 };
 
@@ -28,6 +31,7 @@ function buildProductsPageHref(
   q: string,
   brand: string,
   model: string,
+  warehouse: string,
 ) {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -42,6 +46,10 @@ function buildProductsPageHref(
 
   if (model) {
     params.set("model", model);
+  }
+
+  if (warehouse) {
+    params.set("warehouse", warehouse);
   }
 
   return `/products?${params.toString()}`;
@@ -124,6 +132,8 @@ export default async function ProductsPage({
   const searchQuery = resolvedSearchParams?.q?.trim() || "";
   const selectedBrand = resolvedSearchParams?.brand?.trim() || "";
   const selectedModel = resolvedSearchParams?.model?.trim() || "";
+  const selectedWarehouse = resolvedSearchParams?.warehouse?.trim() || "";
+  const selectedWarehouseId = Number(selectedWarehouse) || null;
   const currentPage = Math.max(1, Number(resolvedSearchParams?.page) || 1);
   const skip = (currentPage - 1) * PAGE_SIZE;
   const filters: Prisma.ProductWhereInput[] = [];
@@ -201,10 +211,38 @@ export default async function ProductsPage({
     });
   }
 
+  if (selectedWarehouseId) {
+    filters.push({
+      variants: {
+        some: {
+          stockLevels: {
+            some: {
+              warehouseId: selectedWarehouseId,
+              quantity: {
+                gt: 0,
+              },
+            },
+          },
+        },
+      },
+    });
+  } else {
+    filters.push({
+      variants: {
+        some: {
+          active: true,
+          stock: {
+            gt: 0,
+          },
+        },
+      },
+    });
+  }
+
   const where: Prisma.ProductWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  const [products, totalProducts, filterProducts, stockTotals] = await Promise.all([
+  const [products, totalProducts, filterProducts, stockTotals, warehouses] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: {
@@ -223,7 +261,19 @@ export default async function ProductsPage({
             color: true,
             sku: true,
             imagePath: true,
+            active: true,
             stock: true,
+            ...(selectedWarehouseId
+              ? {
+                  stockLevels: {
+                    where: { warehouseId: selectedWarehouseId },
+                    select: {
+                      warehouseId: true,
+                      quantity: true,
+                    },
+                  },
+                }
+              : {}),
             price: true,
           },
         },
@@ -240,11 +290,24 @@ export default async function ProductsPage({
     prisma.variant.findMany({
       where: {
         product: where,
+        active: true,
       },
       select: {
         stock: true,
+        ...(selectedWarehouseId
+          ? {
+              stockLevels: {
+                where: { warehouseId: selectedWarehouseId },
+                select: {
+                  warehouseId: true,
+                  quantity: true,
+                },
+              },
+            }
+          : {}),
       },
     }),
+    getActiveWarehouses(),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
@@ -257,12 +320,37 @@ export default async function ProductsPage({
       ),
     ),
   ];
-  const totalPairs = stockTotals.reduce((sum, variant) => sum + variant.stock, 0);
+  const totalPairs = stockTotals.reduce(
+    (sum, variant) =>
+      sum +
+      resolveWarehouseStock(
+        Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+        variant.stock,
+        selectedWarehouseId,
+      ),
+    0,
+  );
   const lowStockProducts = products.filter((product) =>
     product.variants.some(
-      (variant) => variant.stock > 0 && variant.stock <= LOW_STOCK_THRESHOLD,
+      (variant) => {
+        const currentStock = resolveWarehouseStock(
+          Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+          variant.stock,
+          selectedWarehouseId,
+        );
+        return currentStock > 0 && currentStock <= LOW_STOCK_THRESHOLD;
+      },
     ),
   ).length;
+  const getVariantStock = (variant: {
+    stock: number;
+    stockLevels?: { warehouseId: number; quantity: number }[];
+  }) =>
+    resolveWarehouseStock(
+      Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+      variant.stock,
+      selectedWarehouseId,
+    );
 
   return (
     <main className="px-4 py-6 sm:px-6 lg:px-8">
@@ -312,8 +400,13 @@ export default async function ProductsPage({
               searchQuery={searchQuery}
               selectedBrand={selectedBrand}
               selectedModel={selectedModel}
+              selectedWarehouse={selectedWarehouse}
               brands={brands}
               models={models}
+              warehouses={warehouses.map((warehouse) => ({
+                id: warehouse.id,
+                name: warehouse.name,
+              }))}
             />
           </div>
           {products.length === 0 ? (
@@ -333,19 +426,24 @@ export default async function ProductsPage({
             <>
               <div className="grid gap-4 p-4 sm:p-5 lg:hidden">
                 {products.map((product) => {
+                  const visibleStockVariants = product.variants.filter(
+                    (variant) => variant.active && getVariantStock(variant) > 0,
+                  );
                   const sizes = [
-                    ...new Set(product.variants.map((variant) => variant.size)),
+                    ...new Set(
+                      visibleStockVariants.map((variant) => variant.size),
+                    ),
                   ];
                   const colors = [
                     ...new Set(
-                      product.variants.map((variant) => variant.color),
+                      visibleStockVariants.map((variant) => variant.color),
                     ),
                   ];
-                  const totalStock = product.variants.reduce(
-                    (sum, variant) => sum + variant.stock,
+                  const totalStock = visibleStockVariants.reduce(
+                    (sum, variant) => sum + getVariantStock(variant),
                     0,
                   );
-                  const prices = product.variants.map((variant) =>
+                  const prices = visibleStockVariants.map((variant) =>
                     Number(variant.price),
                   );
                   const minPrice =
@@ -353,8 +451,8 @@ export default async function ProductsPage({
                   const maxPrice =
                     prices.length > 0 ? Math.max(...prices) : null;
                   const previewVariant =
-                    product.variants.find((variant) => variant.imagePath) ??
-                    product.variants[0];
+                    visibleStockVariants.find((variant) => variant.imagePath) ??
+                    visibleStockVariants[0];
 
                   return (
                     <article
@@ -364,18 +462,19 @@ export default async function ProductsPage({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-3">
                           <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                            <ProductStockQuickView
+                            <ProductStockQuickViewClient
                               productId={product.id}
                               productName={product.name}
                               productBrand={product.brand}
                               imagePath={previewVariant?.imagePath ?? null}
-                              variants={product.variants.map((variant) => ({
+                              variants={visibleStockVariants.map((variant) => ({
                                 id: variant.id,
                                 size: variant.size,
                                 color: variant.color,
                                 imagePath: variant.imagePath,
-                                stock: variant.stock,
+                                stock: getVariantStock(variant),
                               }))}
+                              selectedWarehouseId={selectedWarehouseId}
                               className="h-full w-full"
                               canAdjustStock={canQuickAdjustStock}
                               canDeleteColor={canManageInventory}
@@ -391,7 +490,7 @@ export default async function ProductsPage({
                           </div>
                         </div>
                         <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                          {product.variants.length} var
+                          {visibleStockVariants.length} var
                         </span>
                       </div>
 
@@ -438,18 +537,19 @@ export default async function ProductsPage({
                       </div>
 
                       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
-                        <ProductStockQuickView
+                        <ProductStockQuickViewClient
                           productId={product.id}
                           productName={product.name}
                           productBrand={product.brand}
                           imagePath={previewVariant?.imagePath ?? null}
-                          variants={product.variants.map((variant) => ({
+                          variants={visibleStockVariants.map((variant) => ({
                             id: variant.id,
                             size: variant.size,
                             color: variant.color,
                             imagePath: variant.imagePath,
-                            stock: variant.stock,
+                            stock: getVariantStock(variant),
                           }))}
+                          selectedWarehouseId={selectedWarehouseId}
                           showImageButton={false}
                           canAdjustStock={canQuickAdjustStock}
                           canDeleteColor={canManageInventory}
@@ -504,24 +604,27 @@ export default async function ProductsPage({
                     className="divide-y divide-slate-100 bg-white"
                   >
                     {products.map((product) => {
+                      const visibleStockVariants = product.variants.filter(
+                        (variant) => variant.active && getVariantStock(variant) > 0,
+                      );
                       const sizes = [
                         ...new Set(
-                          product.variants.map((variant) => variant.size),
+                          visibleStockVariants.map((variant) => variant.size),
                         ),
                       ];
                       const colors = [
                         ...new Set(
-                          product.variants.map((variant) => variant.color),
+                          visibleStockVariants.map((variant) => variant.color),
                         ),
                       ];
                       const previewVariant =
-                        product.variants.find((variant) => variant.imagePath) ??
-                        product.variants[0];
-                      const totalStock = product.variants.reduce(
-                        (sum, variant) => sum + variant.stock,
+                        visibleStockVariants.find((variant) => variant.imagePath) ??
+                        visibleStockVariants[0];
+                      const totalStock = visibleStockVariants.reduce(
+                        (sum, variant) => sum + getVariantStock(variant),
                         0,
                       );
-                      const prices = product.variants.map((variant) =>
+                      const prices = visibleStockVariants.map((variant) =>
                         Number(variant.price),
                       );
                       const minPrice =
@@ -534,18 +637,19 @@ export default async function ProductsPage({
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                                <ProductStockQuickView
+                                <ProductStockQuickViewClient
                                   productId={product.id}
                                   productName={product.name}
                                   productBrand={product.brand}
                                   imagePath={previewVariant?.imagePath ?? null}
-                                  variants={product.variants.map((variant) => ({
+                                  variants={visibleStockVariants.map((variant) => ({
                                     id: variant.id,
                                     size: variant.size,
                                     color: variant.color,
                                     imagePath: variant.imagePath,
-                                    stock: variant.stock,
+                                    stock: getVariantStock(variant),
                                   }))}
+                                  selectedWarehouseId={selectedWarehouseId}
                                   className="h-full w-full"
                                   canAdjustStock={canQuickAdjustStock}
                                   canDeleteColor={canManageInventory}
@@ -601,7 +705,7 @@ export default async function ProductsPage({
                           </td>
                           <td className="px-5 py-4 text-center">
                             <span className="inline-flex min-w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800">
-                              {product.variants.length}
+                              {visibleStockVariants.length}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-center">
@@ -628,18 +732,19 @@ export default async function ProductsPage({
                               >
                                 Menaxho
                               </Link>
-                              <ProductStockQuickView
+                              <ProductStockQuickViewClient
                                 productId={product.id}
                                 productName={product.name}
                                 productBrand={product.brand}
                                 imagePath={previewVariant?.imagePath ?? null}
-                                variants={product.variants.map((variant) => ({
+                                variants={visibleStockVariants.map((variant) => ({
                                   id: variant.id,
                                   size: variant.size,
                                   color: variant.color,
                                   imagePath: variant.imagePath,
-                                  stock: variant.stock,
+                                  stock: getVariantStock(variant),
                                 }))}
+                                selectedWarehouseId={selectedWarehouseId}
                                 showImageButton={false}
                                 canAdjustStock={canQuickAdjustStock}
                                 canDeleteColor={canManageInventory}
@@ -701,6 +806,7 @@ export default async function ProductsPage({
                     searchQuery,
                     selectedBrand,
                     selectedModel,
+                    selectedWarehouse,
                   )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
@@ -718,6 +824,7 @@ export default async function ProductsPage({
                     searchQuery,
                     selectedBrand,
                     selectedModel,
+                    selectedWarehouse,
                   )}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                 >
@@ -735,6 +842,8 @@ export default async function ProductsPage({
     </main>
   );
 }
+
+
 
 
 

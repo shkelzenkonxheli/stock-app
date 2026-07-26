@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveWarehouseStock } from "@/lib/stock-levels";
+import { getActiveWarehouses } from "@/lib/warehouses";
 import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
 
@@ -19,6 +21,7 @@ type ProductDetailsPageProps = {
     size?: string;
     color?: string;
     stock?: string;
+    warehouse?: string;
     feedback?: string;
     feedbackType?: string;
   }>;
@@ -30,6 +33,7 @@ function buildProductDetailsHref(
     size?: string;
     color?: string;
     stock?: string;
+    warehouse?: string;
     feedback?: string;
     feedbackType?: string;
   } = {},
@@ -44,6 +48,9 @@ function buildProductDetailsHref(
   }
   if (options.stock) {
     params.set("stock", options.stock);
+  }
+  if (options.warehouse) {
+    params.set("warehouse", options.warehouse);
   }
   if (options.feedback) {
     params.set("feedback", options.feedback);
@@ -66,6 +73,7 @@ async function deleteVariant(formData: FormData) {
   const selectedSize = formData.get("size")?.toString() || "";
   const selectedColor = formData.get("color")?.toString() || "";
   const selectedStock = formData.get("stock")?.toString() || "";
+  const selectedWarehouse = formData.get("warehouse")?.toString() || "";
 
   if (!variantId || !productId) {
     return;
@@ -75,30 +83,29 @@ async function deleteVariant(formData: FormData) {
     where: { id: variantId },
     select: {
       id: true,
-      orders: {
-        select: {
-          id: true,
-        },
-        take: 1,
-      },
+      active: true,
     },
   });
 
-  if (!variantWithOrders || variantWithOrders.orders.length > 0) {
+  if (!variantWithOrders || !variantWithOrders.active) {
     redirect(
       buildProductDetailsHref(productId, {
         size: selectedSize,
         color: selectedColor,
         stock: selectedStock,
-        feedback: "Ky variant nuk u fshi sepse ka histori porosish.",
+        warehouse: selectedWarehouse,
+        feedback: "Ky variant nuk u gjet.",
         feedbackType: "error",
       }),
     );
     return;
   }
 
-  await prisma.variant.delete({
+  await prisma.variant.update({
     where: { id: variantId },
+    data: {
+      active: false,
+    },
   });
 
   revalidatePath("/");
@@ -111,9 +118,10 @@ async function deleteVariant(formData: FormData) {
       size: selectedSize,
       color: selectedColor,
       stock: selectedStock,
-      feedback: "Varianti u fshi me sukses.",
-      feedbackType: "success",
-    }),
+      warehouse: selectedWarehouse,
+        feedback: "Varianti u arkivua me sukses.",
+        feedbackType: "success",
+      }),
   );
 }
 
@@ -127,6 +135,7 @@ async function bulkDeleteVariants(formData: FormData) {
   const selectedSize = formData.get("size")?.toString() || "";
   const selectedColor = formData.get("color")?.toString() || "";
   const selectedStock = formData.get("stock")?.toString() || "";
+  const selectedWarehouse = formData.get("warehouse")?.toString() || "";
 
   if (!productId || !variantIdsRaw) {
     return;
@@ -155,6 +164,7 @@ async function bulkDeleteVariants(formData: FormData) {
   const variants = await prisma.variant.findMany({
     where: {
       productId,
+      active: true,
       id: {
         in: variantIds,
       },
@@ -176,29 +186,29 @@ async function bulkDeleteVariants(formData: FormData) {
     },
   });
 
-  const deletableIds = variants
-    .filter((variant) => variant.orders.length === 0 && variant.items.length === 0)
-    .map((variant) => variant.id);
-
-  if (deletableIds.length === 0) {
+  if (variants.length === 0) {
     redirect(
       buildProductDetailsHref(productId, {
         size: selectedSize,
         color: selectedColor,
         stock: selectedStock,
-        feedback: "Asnje variant nuk u fshi sepse te gjitha kane histori porosish.",
+        warehouse: selectedWarehouse,
+        feedback: "Asnje variant nuk u gjet per fshirje.",
         feedbackType: "error",
       }),
     );
     return;
   }
 
-  await prisma.variant.deleteMany({
+  await prisma.variant.updateMany({
     where: {
       productId,
       id: {
-        in: deletableIds,
+        in: variants.map((variant) => variant.id),
       },
+    },
+    data: {
+      active: false,
     },
   });
 
@@ -207,18 +217,14 @@ async function bulkDeleteVariants(formData: FormData) {
   revalidatePath(`/products/${productId}`);
   revalidatePath("/orders/new");
 
-  const blockedCount = variants.length - deletableIds.length;
-
   redirect(
     buildProductDetailsHref(productId, {
       size: selectedSize,
       color: selectedColor,
       stock: selectedStock,
-      feedback:
-        blockedCount > 0
-          ? `${deletableIds.length} variante u fshine. ${blockedCount} nuk u fshine sepse kane histori porosish.`
-          : `${deletableIds.length} variante u fshine me sukses.`,
-      feedbackType: blockedCount > 0 ? "warning" : "success",
+      warehouse: selectedWarehouse,
+      feedback: `${variants.length} variante u arkivuan me sukses.`,
+      feedbackType: "success",
     }),
   );
 }
@@ -239,21 +245,24 @@ export default async function ProductDetailsPage({
   const selectedSize = resolvedSearchParams?.size?.trim() || "";
   const selectedColor = resolvedSearchParams?.color?.trim() || "";
   const selectedStock = resolvedSearchParams?.stock?.trim() || "";
+  const selectedWarehouse = resolvedSearchParams?.warehouse?.trim() || "";
+  const selectedWarehouseId = Number(selectedWarehouse) || null;
   const feedbackMessage = resolvedSearchParams?.feedback?.trim() || "";
   const feedbackType = resolvedSearchParams?.feedbackType?.trim() || "";
 
   const variantsWhere: Prisma.VariantWhereInput = {
     productId,
+    active: true,
     ...(selectedSize ? { size: selectedSize } : {}),
     ...(selectedColor ? { color: selectedColor } : {}),
-    ...(selectedStock === "in"
+    ...(!selectedWarehouseId && selectedStock === "in"
       ? {
           stock: {
             gt: 0,
           },
         }
       : {}),
-    ...(selectedStock === "low"
+    ...(!selectedWarehouseId && selectedStock === "low"
       ? {
           stock: {
             gt: 0,
@@ -261,14 +270,16 @@ export default async function ProductDetailsPage({
           },
         }
       : {}),
-    ...(selectedStock === "out"
+    ...(!selectedWarehouseId && selectedStock === "out"
       ? {
           stock: 0,
         }
       : {}),
   };
 
-  const [product, allVariants, filteredVariants] = await Promise.all([
+  const selectedWarehouseHidden = resolvedSearchParams?.warehouse?.trim() || "";
+
+  const [product, allVariants, filteredVariants, warehouses] = await Promise.all([
     prisma.product.findUnique({
       where: { id: productId },
       select: {
@@ -301,6 +312,7 @@ export default async function ProductDetailsPage({
     prisma.variant.findMany({
       where: {
         productId,
+        active: true,
       },
       select: {
         id: true,
@@ -310,6 +322,17 @@ export default async function ProductDetailsPage({
         barcode: true,
         imagePath: true,
         stock: true,
+        ...(selectedWarehouseId
+          ? {
+              stockLevels: {
+                where: { warehouseId: selectedWarehouseId },
+                select: {
+                  warehouseId: true,
+                  quantity: true,
+                },
+              },
+            }
+          : {}),
         price: true,
       },
       orderBy: [{ color: "asc" }, { size: "asc" }],
@@ -324,10 +347,22 @@ export default async function ProductDetailsPage({
         barcode: true,
         imagePath: true,
         stock: true,
+        ...(selectedWarehouseId
+          ? {
+              stockLevels: {
+                where: { warehouseId: selectedWarehouseId },
+                select: {
+                  warehouseId: true,
+                  quantity: true,
+                },
+              },
+            }
+          : {}),
         price: true,
       },
       orderBy: [{ color: "asc" }, { size: "asc" }],
     }),
+    getActiveWarehouses(),
   ]);
 
   if (!product) {
@@ -335,11 +370,36 @@ export default async function ProductDetailsPage({
   }
 
   const totalStock = allVariants.reduce(
-    (sum, variant) => sum + variant.stock,
+    (sum, variant) =>
+      sum +
+      resolveWarehouseStock(
+        Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+        variant.stock,
+        selectedWarehouseId,
+      ),
     0,
   );
   const colors = [...new Set(allVariants.map((variant) => variant.color))];
   const sizes = [...new Set(allVariants.map((variant) => variant.size))];
+  const visibleVariants = selectedWarehouseId
+    ? filteredVariants.filter((variant) => {
+        const warehouseStock = resolveWarehouseStock(
+          Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+          variant.stock,
+          selectedWarehouseId,
+        );
+        if (selectedStock === "in") return warehouseStock > 0;
+        if (selectedStock === "low") {
+          return warehouseStock > 0 && warehouseStock <= 5;
+        }
+        if (selectedStock === "out") return false;
+        return warehouseStock > 0;
+      })
+    : filteredVariants.filter((variant) => {
+        if (selectedStock === "out") return false;
+
+        return variant.stock > 0;
+      });
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
   const latestMovements = product.variants
     .flatMap((variant) => variant.stockMovements)
@@ -425,15 +485,20 @@ export default async function ProductDetailsPage({
                 selectedSize={selectedSize}
                 selectedColor={selectedColor}
                 selectedStock={selectedStock}
+                selectedWarehouse={selectedWarehouse}
                 sizes={sizes}
                 colors={colors}
+                warehouses={warehouses.map((warehouse) => ({
+                  id: warehouse.id,
+                  name: warehouse.name,
+                }))}
               />
 
               <div className="flex items-center justify-between px-1">
                 <p className="text-sm text-slate-600">
                   Po shfaqen{" "}
                   <span className="font-semibold text-slate-950">
-                    {filteredVariants.length}
+                    {visibleVariants.length}
                   </span>{" "}
                   nga{" "}
                   <span className="font-semibold text-slate-950">
@@ -450,20 +515,25 @@ export default async function ProductDetailsPage({
                 selectedSize={selectedSize}
                 selectedColor={selectedColor}
                 selectedStock={selectedStock}
-                variants={filteredVariants.map((variant) => ({
+                selectedWarehouse={selectedWarehouseHidden}
+                variants={visibleVariants.map((variant) => ({
                   id: variant.id,
                   size: variant.size,
                   color: variant.color,
                   sku: variant.sku,
                   barcode: variant.barcode,
                   imagePath: variant.imagePath,
-                  stock: variant.stock,
+                  stock: resolveWarehouseStock(
+                    Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
+                    variant.stock,
+                    selectedWarehouseId,
+                  ),
                   price: Number(variant.price),
                 }))}
                 deleteVariantAction={deleteVariant}
                 bulkDeleteAction={bulkDeleteVariants}
               />
-              {filteredVariants.length === 0 ? (
+              {visibleVariants.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-10 text-center">
                   <p className="text-base font-medium text-slate-900">
                     Nuk u gjet asnje variant me keto filtra

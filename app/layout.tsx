@@ -106,7 +106,7 @@ export default async function RootLayout({
             </svg>
           ),
         },
-        ...(hasRole(currentUser, ["SUPER_ADMIN"])
+        ...(hasRole(currentUser, ["SUPER_ADMIN", "WAREHOUSE"])
           ? [
               {
                 href: "/stock/incoming",
@@ -117,6 +117,19 @@ export default async function RootLayout({
                     className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
                   >
                     <path d="m12 19 6-6M12 19l-6-6M12 5v14" />
+                  </svg>
+                ),
+              },
+              {
+                href: "/stock/transfers",
+                label: "Transfer Stoku",
+                icon: (
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
+                    <path d="M7 7h10M7 17h10" />
+                    <path d="m13 4 4 3-4 3M11 14l-4 3 4 3" />
                   </svg>
                 ),
               },

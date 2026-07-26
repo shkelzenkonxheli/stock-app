@@ -2,9 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDefaultWarehouse } from "@/lib/warehouses";
 
 type StockUpdatePayload = {
   productId?: number;
+  warehouseId?: number | null;
   reason?: string;
   updates?: Array<{
     variantId?: number;
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
   }
 
   const productId = Number(payload.productId);
+  const requestedWarehouseId = Number(payload.warehouseId);
   const reason =
     payload.reason === "CUSTOMER_RETURN" ? "CUSTOMER_RETURN" : "INCOMING_STOCK";
   const updates = (payload.updates ?? [])
@@ -45,6 +48,16 @@ export async function POST(request: Request) {
 
   if (!Number.isInteger(productId) || productId <= 0 || updates.length === 0) {
     return NextResponse.json({ error: "Missing stock updates" }, { status: 400 });
+  }
+
+  const defaultWarehouse = await getDefaultWarehouse();
+  const warehouseId =
+    Number.isInteger(requestedWarehouseId) && requestedWarehouseId > 0
+      ? requestedWarehouseId
+      : defaultWarehouse?.id;
+
+  if (!warehouseId) {
+    return NextResponse.json({ error: "Warehouse not found" }, { status: 400 });
   }
 
   const variants = await prisma.variant.findMany({
@@ -83,9 +96,28 @@ export async function POST(request: Request) {
             stock: currentStock + update.quantity,
           },
         }),
+        prisma.stockLevel.upsert({
+          where: {
+            variantId_warehouseId: {
+              variantId: update.variantId,
+              warehouseId,
+            },
+          },
+          update: {
+            quantity: {
+              increment: update.quantity,
+            },
+          },
+          create: {
+            variantId: update.variantId,
+            warehouseId,
+            quantity: update.quantity,
+          },
+        }),
         prisma.stockMovement.create({
           data: {
             variantId: update.variantId,
+            warehouseId,
             quantity: update.quantity,
             reason,
           },

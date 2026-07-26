@@ -11,6 +11,12 @@ type ProductOption = {
   name: string;
   brand: string;
   imagePath: string | null;
+  warehouseIds: number[];
+};
+
+type WarehouseOption = {
+  id: number;
+  name: string;
 };
 
 type OrderVariant = {
@@ -27,6 +33,8 @@ type OrderVariant = {
 type QuickOrdersFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   products: ProductOption[];
+  warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
 };
 
 type OrderSource = "INSTAGRAM" | "STORE" | "WHOLESALE";
@@ -53,12 +61,20 @@ function createRow(productId: number, variantId: number): QuickOrderRow {
   };
 }
 
-export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
+export function QuickOrdersForm({
+  action,
+  products,
+  warehouses,
+  defaultWarehouseId,
+}: QuickOrdersFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
+  const [warehouseId, setWarehouseId] = useState(
+    defaultWarehouseId ? String(defaultWarehouseId) : "",
+  );
   const [rows, setRows] = useState<QuickOrderRow[]>([]);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [variantsByProduct, setVariantsByProduct] = useState<
-    Record<number, OrderVariant[]>
+    Record<string, OrderVariant[]>
   >({});
   const [loadingProducts, setLoadingProducts] = useState<Record<number, boolean>>(
     {},
@@ -73,23 +89,40 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     src: string;
     alt: string;
   } | null>(null);
+  const selectedWarehouseId = Number(warehouseId) || 0;
+
+  const handleWarehouseChange = (nextWarehouseId: string) => {
+    setWarehouseId(nextWarehouseId);
+    setRows([]);
+    setRowErrors({});
+    setSelectedBrand("");
+    setSelectedProductId("");
+    setSelectedVariantId("");
+    setModelPickerOpen(false);
+    setColorPickerOpen(false);
+    setPendingColorPickerOpen(false);
+  };
 
   useEffect(() => {
     const productId = Number(selectedProductId);
+    const currentWarehouseId = Number(warehouseId);
 
-    if (!productId) {
+    if (!productId || !currentWarehouseId) {
       return;
     }
 
     let isCancelled = false;
 
     const loadVariants = async () => {
-      setLoadingProducts((current) => ({ ...current, [productId]: true }));
+        setLoadingProducts((current) => ({ ...current, [productId]: true }));
 
       try {
-        const response = await fetch(`/api/products/${productId}/variants`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/products/${productId}/variants?warehouseId=${currentWarehouseId}`,
+          {
+            cache: "no-store",
+          },
+        );
 
         if (!response.ok) {
           return;
@@ -100,7 +133,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
         if (!isCancelled) {
           setVariantsByProduct((current) => ({
             ...current,
-            [productId]: data,
+            [`${currentWarehouseId}:${productId}`]: data,
           }));
         }
       } finally {
@@ -115,7 +148,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
     return () => {
       isCancelled = true;
     };
-  }, [selectedProductId, colorPickerOpen]);
+  }, [selectedProductId, colorPickerOpen, warehouseId]);
 
   useEffect(() => {
     if (Object.keys(rowErrors).length === 0) {
@@ -131,27 +164,40 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
 
   const brands = useMemo(
     () =>
-      [...new Set(products.map((product) => product.brand))].sort((a, b) =>
+      [
+        ...new Set(
+          products
+            .filter((product) => product.warehouseIds.includes(selectedWarehouseId))
+            .map((product) => product.brand),
+        ),
+      ].sort((a, b) =>
         a.localeCompare(b),
       ),
-    [products],
+    [products, selectedWarehouseId],
   );
 
   const filteredProducts = useMemo(
     () =>
       selectedBrand
-        ? products.filter((product) => product.brand === selectedBrand)
+        ? products.filter(
+            (product) =>
+              product.warehouseIds.includes(selectedWarehouseId) &&
+              product.brand === selectedBrand,
+          )
         : [],
-    [products, selectedBrand],
+    [products, selectedBrand, selectedWarehouseId],
   );
 
   const currentProductId = Number(selectedProductId);
   const currentVariants = currentProductId
-    ? variantsByProduct[currentProductId] ?? []
+    ? variantsByProduct[`${Number(warehouseId)}:${currentProductId}`] ?? []
     : [];
   const hasLoadedCurrentVariants =
     currentProductId > 0 &&
-    Object.prototype.hasOwnProperty.call(variantsByProduct, currentProductId);
+    Object.prototype.hasOwnProperty.call(
+      variantsByProduct,
+      `${Number(warehouseId)}:${currentProductId}`,
+    );
   const currentProductLoading = currentProductId
     ? Boolean(loadingProducts[currentProductId])
     : false;
@@ -372,6 +418,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
   return (
     <form action={action} className="mt-8 space-y-5">
       <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="warehouseId" value={warehouseId} />
       <input type="hidden" name="rows" value={serializedRows} />
 
       <div className="rounded-[28px] bg-white p-5">
@@ -400,6 +447,21 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
           })}
         </div>
 
+        <div className="mt-4 w-full sm:max-w-[280px]">
+          <select
+            value={warehouseId}
+            onChange={(event) => handleWarehouseChange(event.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+          >
+            <option value="">Zgjidh depon</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
           <select
             value={selectedBrand}
@@ -413,9 +475,10 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
               setPendingColorPickerOpen(false);
               setModelPickerOpen(Boolean(nextBrand));
             }}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            disabled={!warehouseId}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
-            <option value="">Zgjidh Brandin</option>
+            <option value="">{!warehouseId ? "Zgjidh depon" : "Zgjidh Brandin"}</option>
             {brands.map((brand) => (
               <option key={brand} value={brand}>
                 {brand}
@@ -433,8 +496,8 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
               setColorPickerOpen(false);
               setPendingColorPickerOpen(true);
             }}
-            disabled={!selectedBrand}
-            placeholder="Zgjidh Modelin"
+            disabled={!selectedBrand || !warehouseId}
+            placeholder={!warehouseId ? "Zgjidh depon" : "Zgjidh Modelin"}
             emptyLabel="Nuk ka modele per kete brand."
             displayMode="modalCards"
             open={modelPickerOpen}
@@ -495,9 +558,11 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
             setColorPickerOpen(false);
             setPendingColorPickerOpen(false);
           }}
-          disabled={!selectedProductId || currentProductLoading}
+          disabled={!selectedProductId || !warehouseId || currentProductLoading}
           placeholder={
-            !selectedProductId
+            !warehouseId
+              ? "Zgjidh depon"
+              : !selectedProductId
               ? "Zgjidh Modelin"
               : currentProductLoading
                 ? "Duke ngarkuar variantet..."
@@ -546,7 +611,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                   key={row.id}
                   className="grid grid-cols-1 gap-4 py-4 md:grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_120px_120px_80px] md:items-center"
                 >
-                  <div className="relative flex min-w-0 items-center gap-3">
+                  <div className="relative flex min-w-0 items-center gap-3 pr-8 md:pr-0">
                     <div className="flex min-w-0 items-center gap-3">
                       <button
                         type="button"
@@ -587,7 +652,7 @@ export function QuickOrdersForm({ action, products }: QuickOrdersFormProps) {
                     </button>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
                       {variant.color} • Nr {variant.size}
                     </span>

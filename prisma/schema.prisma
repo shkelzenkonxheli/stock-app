@@ -34,6 +34,7 @@ model Variant {
   sku       String?  @unique
   barcode   String?  @unique
   imagePath String?
+  active    Boolean  @default(true)
   stock     Int      @default(0)
   price     Decimal  @db.Decimal(10, 2)
   createdAt DateTime @default(now())
@@ -43,10 +44,13 @@ model Variant {
   orders  Order[]
   items   OrderItem[]
   stockMovements StockMovement[]
+  stockLevels StockLevel[]
+  stockTransfers StockTransfer[]
 
   @@index([productId])
   @@index([productId, size])
   @@index([productId, color])
+  @@index([active])
   @@index([stock])
   @@index([createdAt])
 }
@@ -54,15 +58,71 @@ model Variant {
 model StockMovement {
   id        Int               @id @default(autoincrement())
   variantId  Int
+  warehouseId Int?
   quantity  Int
   reason    StockMovementReason
   createdAt DateTime          @default(now())
 
   variant Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
   @@index([variantId])
+  @@index([warehouseId])
   @@index([createdAt])
   @@index([reason])
+}
+
+model Warehouse {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels        StockLevel[]
+  stockMovements     StockMovement[]
+  orders             Order[]
+  outgoingTransfers  StockTransfer[] @relation("StockTransferFromWarehouse")
+  incomingTransfers  StockTransfer[] @relation("StockTransferToWarehouse")
+
+  @@index([active])
+  @@index([isDefault])
+}
+
+model StockLevel {
+  id          Int      @id @default(autoincrement())
+  variantId    Int
+  warehouseId Int
+  quantity    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  variant   Variant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, warehouseId])
+  @@index([warehouseId])
+  @@index([variantId])
+}
+
+model StockTransfer {
+  id               Int      @id @default(autoincrement())
+  variantId        Int
+  fromWarehouseId  Int
+  toWarehouseId    Int
+  quantity         Int
+  note             String?
+  createdAt        DateTime @default(now())
+
+  variant         Variant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  fromWarehouse   Warehouse @relation("StockTransferFromWarehouse", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+  toWarehouse     Warehouse @relation("StockTransferToWarehouse", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+
+  @@index([variantId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([createdAt])
 }
 
 model Order {
@@ -71,6 +131,7 @@ model Order {
   phone        String
   instagram    String?
   source       OrderSource @default(INSTAGRAM)
+  warehouseId  Int?
   quantity     Int?
   notes        String?
   status       OrderStatus @default(NEW)
@@ -78,13 +139,15 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  variant Variant?    @relation(fields: [variantId], references: [id])
-  items   OrderItem[]
+  variant   Variant?   @relation(fields: [variantId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  items     OrderItem[]
 
   @@index([createdAt])
   @@index([status])
   @@index([source])
   @@index([variantId])
+  @@index([warehouseId])
 }
 
 model OrderItem {

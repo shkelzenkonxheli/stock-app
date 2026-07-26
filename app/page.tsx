@@ -124,6 +124,7 @@ function getTimeZoneDayBounds(dateString: string, timeZone: string) {
 export default async function Home() {
   const currentUser = await requireUser();
   const canManageInventory = hasRole(currentUser, ["SUPER_ADMIN"]);
+  const canManageStock = hasRole(currentUser, ["SUPER_ADMIN", "WAREHOUSE"]);
   const canCreateOrders = hasRole(currentUser, ["SUPER_ADMIN", "SELLER"]);
   const canManageOrders = hasRole(currentUser, [
     "SUPER_ADMIN",
@@ -221,13 +222,30 @@ export default async function Home() {
       href: "/products/new",
       accent: "bg-[linear-gradient(135deg,#16a34a_0%,#22c55e_100%)]",
       pill: "Kategorizimi automatik",
-      visible: canManageInventory,
+      visible: canManageStock,
       icon: (
         <svg
           viewBox="0 0 24 24"
           className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
         >
           <path d="M12 5v14M5 12h14" />
+        </svg>
+      ),
+    },
+    {
+      title: "Transfer Stoku",
+      subtitle: "Levize stokun mes depove pa ndryshuar totalin e inventarit.",
+      href: "/stock/transfers",
+      accent: "bg-[linear-gradient(135deg,#0284c7_0%,#0ea5e9_100%)]",
+      pill: "Levizje mes depove",
+      visible: canManageStock,
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
+          <path d="M7 7h10M7 17h10" />
+          <path d="m13 4 4 3-4 3M11 14l-4 3 4 3" />
         </svg>
       ),
     },

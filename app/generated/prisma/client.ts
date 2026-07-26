@@ -57,6 +57,21 @@ export type Variant = Prisma.VariantModel
  */
 export type StockMovement = Prisma.StockMovementModel
 /**
+ * Model Warehouse
+ * 
+ */
+export type Warehouse = Prisma.WarehouseModel
+/**
+ * Model StockLevel
+ * 
+ */
+export type StockLevel = Prisma.StockLevelModel
+/**
+ * Model StockTransfer
+ * 
+ */
+export type StockTransfer = Prisma.StockTransferModel
+/**
  * Model Order
  * 
  */

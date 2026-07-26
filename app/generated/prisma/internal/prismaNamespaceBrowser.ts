@@ -54,6 +54,9 @@ export const ModelName = {
   Product: 'Product',
   Variant: 'Variant',
   StockMovement: 'StockMovement',
+  Warehouse: 'Warehouse',
+  StockLevel: 'StockLevel',
+  StockTransfer: 'StockTransfer',
   Order: 'Order',
   OrderItem: 'OrderItem',
   User: 'User',
@@ -95,6 +98,7 @@ export const VariantScalarFieldEnum = {
   sku: 'sku',
   barcode: 'barcode',
   imagePath: 'imagePath',
+  active: 'active',
   stock: 'stock',
   price: 'price',
   createdAt: 'createdAt',
@@ -107,6 +111,7 @@ export type VariantScalarFieldEnum = (typeof VariantScalarFieldEnum)[keyof typeo
 export const StockMovementScalarFieldEnum = {
   id: 'id',
   variantId: 'variantId',
+  warehouseId: 'warehouseId',
   quantity: 'quantity',
   reason: 'reason',
   createdAt: 'createdAt'
@@ -115,12 +120,50 @@ export const StockMovementScalarFieldEnum = {
 export type StockMovementScalarFieldEnum = (typeof StockMovementScalarFieldEnum)[keyof typeof StockMovementScalarFieldEnum]
 
 
+export const WarehouseScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  isDefault: 'isDefault',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WarehouseScalarFieldEnum = (typeof WarehouseScalarFieldEnum)[keyof typeof WarehouseScalarFieldEnum]
+
+
+export const StockLevelScalarFieldEnum = {
+  id: 'id',
+  variantId: 'variantId',
+  warehouseId: 'warehouseId',
+  quantity: 'quantity',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StockLevelScalarFieldEnum = (typeof StockLevelScalarFieldEnum)[keyof typeof StockLevelScalarFieldEnum]
+
+
+export const StockTransferScalarFieldEnum = {
+  id: 'id',
+  variantId: 'variantId',
+  fromWarehouseId: 'fromWarehouseId',
+  toWarehouseId: 'toWarehouseId',
+  quantity: 'quantity',
+  note: 'note',
+  createdAt: 'createdAt'
+} as const
+
+export type StockTransferScalarFieldEnum = (typeof StockTransferScalarFieldEnum)[keyof typeof StockTransferScalarFieldEnum]
+
+
 export const OrderScalarFieldEnum = {
   id: 'id',
   customerName: 'customerName',
   phone: 'phone',
   instagram: 'instagram',
   source: 'source',
+  warehouseId: 'warehouseId',
   quantity: 'quantity',
   notes: 'notes',
   status: 'status',

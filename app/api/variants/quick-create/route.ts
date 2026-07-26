@@ -11,9 +11,11 @@ import {
   buildVariantSku,
   ensureUniqueSku,
 } from "@/lib/variant-codes";
+import { getDefaultWarehouse } from "@/lib/warehouses";
 
 type QuickCreatePayload = {
   productId?: number;
+  warehouseId?: number | null;
   color?: string;
   size?: string;
   stock?: number;
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
       const formData = await request.formData();
       payload = {
         productId: Number(formData.get("productId")),
+        warehouseId: Number(formData.get("warehouseId")),
         color: formData.get("color")?.toString(),
         size: formData.get("size")?.toString(),
         stock: Number(formData.get("stock")),
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
   }
 
   const productId = Number(payload.productId);
+  const requestedWarehouseId = Number(payload.warehouseId);
   const color = String(payload.color ?? "").trim();
   const size = String(payload.size ?? "").trim();
   const stock = Number(payload.stock);
@@ -155,6 +159,16 @@ export async function POST(request: Request) {
     color,
   });
 
+  const defaultWarehouse = await getDefaultWarehouse();
+  const warehouseId =
+    Number.isInteger(requestedWarehouseId) && requestedWarehouseId > 0
+      ? requestedWarehouseId
+      : defaultWarehouse?.id;
+
+  if (!warehouseId) {
+    return NextResponse.json({ error: "Depoja nuk u gjet." }, { status: 400 });
+  }
+
   const createdVariant = await prisma.variant.create({
     data: {
       productId,
@@ -180,13 +194,23 @@ export async function POST(request: Request) {
   });
 
   if (stock > 0) {
-    await prisma.stockMovement.create({
-      data: {
-        variantId: createdVariant.id,
-        quantity: stock,
-        reason: "INCOMING_STOCK",
-      },
-    });
+    await prisma.$transaction([
+      prisma.stockLevel.create({
+        data: {
+          variantId: createdVariant.id,
+          warehouseId,
+          quantity: stock,
+        },
+      }),
+      prisma.stockMovement.create({
+        data: {
+          variantId: createdVariant.id,
+          warehouseId,
+          quantity: stock,
+          reason: "INCOMING_STOCK",
+        },
+      }),
+    ]);
   }
 
   revalidatePath("/products");

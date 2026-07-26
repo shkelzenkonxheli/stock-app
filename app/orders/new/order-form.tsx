@@ -22,11 +22,19 @@ type ProductOption = {
   name: string;
   brand: string;
   imagePath: string | null;
+  warehouseIds: number[];
+};
+
+type WarehouseOption = {
+  id: number;
+  name: string;
 };
 
 type OrderFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   products: ProductOption[];
+  warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
 };
 
 type OrderSource = "INSTAGRAM" | "STORE" | "WHOLESALE";
@@ -137,12 +145,20 @@ function getSourceIcon(source: OrderSource) {
   }
 }
 
-export function OrderForm({ action, products }: OrderFormProps) {
+export function OrderForm({
+  action,
+  products,
+  warehouses,
+  defaultWarehouseId,
+}: OrderFormProps) {
   const [source, setSource] = useState<OrderSource>("INSTAGRAM");
+  const [warehouseId, setWarehouseId] = useState(
+    defaultWarehouseId ? String(defaultWarehouseId) : "",
+  );
   const [rows, setRows] = useState<OrderItemRow[]>([createEmptyRow()]);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [variantsByProduct, setVariantsByProduct] = useState<
-    Record<number, OrderVariant[]>
+    Record<string, OrderVariant[]>
   >({});
   const [loadingProducts, setLoadingProducts] = useState<
     Record<number, boolean>
@@ -152,14 +168,25 @@ export function OrderForm({ action, products }: OrderFormProps) {
     alt: string;
   } | null>(null);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const selectedWarehouseId = Number(warehouseId) || 0;
+
+  const handleWarehouseChange = (nextWarehouseId: string) => {
+    setWarehouseId(nextWarehouseId);
+    setRowErrors({});
+    setRows([createEmptyRow()]);
+  };
 
   useEffect(() => {
+    const currentWarehouseId = Number(warehouseId);
     const productIdsToLoad = [
       ...new Set(
         rows
           .map((row) => Number(row.productId))
           .filter(
-            (productId) => productId > 0 && !variantsByProduct[productId],
+            (productId) =>
+              productId > 0 &&
+              currentWarehouseId > 0 &&
+              !variantsByProduct[`${currentWarehouseId}:${productId}`],
           ),
       ),
     ];
@@ -172,12 +199,16 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
     const loadVariants = async () => {
       for (const productId of productIdsToLoad) {
+        const cacheKey = `${currentWarehouseId}:${productId}`;
         setLoadingProducts((current) => ({ ...current, [productId]: true }));
 
         try {
-          const response = await fetch(`/api/products/${productId}/variants`, {
-            cache: "no-store",
-          });
+          const response = await fetch(
+            `/api/products/${productId}/variants?warehouseId=${currentWarehouseId}`,
+            {
+              cache: "no-store",
+            },
+          );
 
           if (!response.ok) {
             continue;
@@ -188,7 +219,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
           if (!isCancelled) {
             setVariantsByProduct((current) => ({
               ...current,
-              [productId]: data,
+              [cacheKey]: data,
             }));
           }
         } finally {
@@ -207,7 +238,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
     return () => {
       isCancelled = true;
     };
-  }, [rows, variantsByProduct]);
+  }, [rows, variantsByProduct, warehouseId]);
 
   useEffect(() => {
     if (Object.keys(rowErrors).length === 0) {
@@ -324,7 +355,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
 
     const selectedProductId = Number(rowToCommit.productId);
     const productVariants = selectedProductId
-      ? (variantsByProduct[selectedProductId] ?? [])
+      ? (variantsByProduct[`${Number(warehouseId)}:${selectedProductId}`] ?? [])
       : [];
     const currentVariantId = Number(rowToCommit.variantId);
     const currentQuantity = Number(rowToCommit.quantity) || 0;
@@ -381,9 +412,14 @@ export function OrderForm({ action, products }: OrderFormProps) {
   };
 
   const allLoadedVariants = Object.values(variantsByProduct).flat();
-  const brands = [...new Set(products.map((product) => product.brand))].sort(
-    (a, b) => a.localeCompare(b, "sq"),
-  );
+  const warehouseProducts = selectedWarehouseId
+    ? products.filter((product) =>
+        product.warehouseIds.includes(selectedWarehouseId),
+      )
+    : [];
+  const brands = [
+    ...new Set(warehouseProducts.map((product) => product.brand)),
+  ].sort((a, b) => a.localeCompare(b, "sq"));
 
   const selectedItems = rows
     .filter((row) => row.committed)
@@ -431,6 +467,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
       className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_312px]"
     >
       <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="warehouseId" value={warehouseId} />
       <input type="hidden" name="items" value={serializedItems} />
 
       <div className="space-y-6">
@@ -459,6 +496,21 @@ export function OrderForm({ action, products }: OrderFormProps) {
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-4 w-full sm:max-w-[280px]">
+            <select
+              value={warehouseId}
+              onChange={(event) => handleWarehouseChange(event.target.value)}
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+            >
+              <option value="">Zgjidh depon</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
+              ))}
+            </select>
           </div>
         </section>
 
@@ -501,13 +553,14 @@ export function OrderForm({ action, products }: OrderFormProps) {
               const rowQuantity = Number(row.quantity) || 0;
               const selectedProductId = Number(row.productId);
               const brandProducts = row.brand
-                ? products.filter(
+                ? warehouseProducts.filter(
                     (product) =>
                       product.brand.toLowerCase() === row.brand.toLowerCase(),
                   )
-                : products;
+                : warehouseProducts;
               const productVariants = selectedProductId
-                ? (variantsByProduct[selectedProductId] ?? [])
+                ? (variantsByProduct[`${Number(warehouseId)}:${selectedProductId}`] ??
+                  [])
                 : [];
               const filteredVariants = productVariants
                 .map((variant) => {
@@ -552,9 +605,12 @@ export function OrderForm({ action, products }: OrderFormProps) {
                         onChange={(event) =>
                           updateRow(row.id, "brand", event.target.value)
                         }
-                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                        disabled={!warehouseId}
+                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       >
-                        <option value="">Zgjidh brandin</option>
+                        <option value="">
+                          {!warehouseId ? "Zgjidh depon" : "Zgjidh brandin"}
+                        </option>
                         {brands.map((brand) => (
                           <option key={brand} value={brand}>
                             {brand}
@@ -571,8 +627,14 @@ export function OrderForm({ action, products }: OrderFormProps) {
                         products={brandProducts}
                         selectedProductId={row.productId}
                         onSelect={(value) => updateRow(row.id, "productId", value)}
-                        disabled={!row.brand}
-                        placeholder={!row.brand ? "Zgjidh brandin" : "Zgjidh produktin"}
+                        disabled={!row.brand || !warehouseId}
+                        placeholder={
+                          !warehouseId
+                            ? "Zgjidh depon"
+                            : !row.brand
+                              ? "Zgjidh brandin"
+                              : "Zgjidh produktin"
+                        }
                         emptyLabel="Nuk ka modele per kete brand."
                       />
                     </div>
@@ -585,9 +647,11 @@ export function OrderForm({ action, products }: OrderFormProps) {
                         variants={filteredVariants}
                         selectedVariantId={row.variantId}
                         onSelectVariant={(value) => updateRow(row.id, "variantId", value)}
-                        disabled={!row.productId || isLoadingVariants}
+                        disabled={!row.productId || !warehouseId || isLoadingVariants}
                         placeholder={
-                          !row.productId
+                          !warehouseId
+                            ? "Zgjidh depon"
+                            : !row.productId
                             ? "Zgjidh produktin"
                             : isLoadingVariants
                               ? "Duke ngarkuar..."
@@ -664,11 +728,11 @@ export function OrderForm({ action, products }: OrderFormProps) {
             {selectedItems.length > 0 ? (
               <div className="space-y-3 border-t border-slate-200 pt-4">
                 {selectedItems.map((item) => (
-                  <div
-                    key={item.rowId}
-                    className="flex items-center justify-between gap-4 rounded-[20px] border border-slate-200 bg-white px-4 py-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
+                <div
+                  key={item.rowId}
+                  className="flex flex-col gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
                       <button
                         type="button"
                         onClick={() =>
@@ -704,7 +768,7 @@ export function OrderForm({ action, products }: OrderFormProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
                       <span className="text-sm font-semibold text-slate-900">
                         {item.price.toFixed(2)} EUR
                       </span>
