@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ProductModelPicker } from "@/app/components/product-model-picker";
 import { UploadedImage } from "@/app/components/uploaded-image";
 import { getStockTone } from "@/lib/inventory";
 
@@ -8,6 +9,7 @@ type ProductOption = {
   id: number;
   name: string;
   brand: string;
+  imagePath: string | null;
 };
 
 type WarehouseOption = {
@@ -47,6 +49,7 @@ export function IncomingStockForm({
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
   const [loading, setLoading] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, string>>({});
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
 
   useEffect(() => {
     const parsedProductId = Number(productId);
@@ -121,11 +124,6 @@ export function IncomingStockForm({
     [quantities],
   );
 
-  const colors = useMemo(
-    () => [...new Set(variants.map((variant) => variant.color))].sort(),
-    [variants],
-  );
-
   const brands = useMemo(
     () =>
       [...new Set(products.map((product) => product.brand))].sort((a, b) =>
@@ -142,11 +140,45 @@ export function IncomingStockForm({
     [products, selectedBrand],
   );
 
+  const selectedProduct = useMemo(
+    () => filteredProducts.find((product) => String(product.id) === productId) ?? null,
+    [filteredProducts, productId],
+  );
+
+  const colorOptions = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { color: string; imagePath: string | null; totalStock: number }
+    >();
+
+    for (const variant of variants) {
+      const key = variant.color.trim().toLowerCase();
+      const current = grouped.get(key);
+
+      if (current) {
+        current.totalStock += variant.stock;
+        if (!current.imagePath && variant.imagePath) {
+          current.imagePath = variant.imagePath;
+        }
+      } else {
+        grouped.set(key, {
+          color: variant.color,
+          imagePath: variant.imagePath,
+          totalStock: variant.stock,
+        });
+      }
+    }
+
+    return [...grouped.values()].sort((a, b) =>
+      a.color.localeCompare(b.color, "sq", { sensitivity: "base" }),
+    );
+  }, [variants]);
+
   const visibleVariants = useMemo(
     () =>
       selectedColor
         ? variants.filter((variant) => variant.color === selectedColor)
-        : variants,
+        : [],
     [selectedColor, variants],
   );
 
@@ -210,14 +242,45 @@ export function IncomingStockForm({
 
           <label className="space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Depoja
+            </span>
+            <select
+              id="warehouseId"
+              name="warehouseIdSelect"
+              value={warehouseId}
+              onChange={(event) => {
+                setWarehouseId(event.target.value);
+                setProductId("");
+                setSelectedColor("");
+                setVariants([]);
+                setQuantities({});
+                setModelPickerOpen(false);
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
+            >
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Brandi
             </span>
             <select
               id="brandFilter"
               value={selectedBrand}
               onChange={(event) => {
-                setSelectedBrand(event.target.value);
+                const nextBrand = event.target.value;
+                setSelectedBrand(nextBrand);
                 setProductId("");
+                setSelectedColor("");
+                setVariants([]);
+                setQuantities({});
+                setModelPickerOpen(Boolean(nextBrand));
               }}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
             >
@@ -230,64 +293,93 @@ export function IncomingStockForm({
             </select>
           </label>
 
-          <label className="space-y-2">
+          <div className="space-y-2 lg:col-span-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Produkti
+              Modeli dhe fotoja
             </span>
-            <select
-              id="productId"
-              value={productId}
-              onChange={(event) => setProductId(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-            >
-              <option value="">Zgjidh produktin</option>
-              {filteredProducts.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Ngjyra
-            </span>
-            <select
-              id="colorFilter"
-              value={selectedColor}
-              onChange={(event) => setSelectedColor(event.target.value)}
-              disabled={!productId || colors.length === 0}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="">Te gjitha ngjyrat</option>
-              {colors.map((color) => (
-                <option key={color} value={color}>
-                  {color}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Depoja
-            </span>
-            <select
-              id="warehouseId"
-              name="warehouseIdSelect"
-              value={warehouseId}
-              onChange={(event) => setWarehouseId(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-100"
-            >
-              {warehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="flex min-h-[58px] items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+              {!selectedProduct ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedBrand) {
+                      setModelPickerOpen(true);
+                    }
+                  }}
+                  disabled={!selectedBrand}
+                  className="inline-flex w-full items-center justify-between rounded-xl bg-white px-4 py-3 text-left text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <span>{!selectedBrand ? "Zgjidh brandin" : "Zgjidh modelin"}</span>
+                  <span className="text-slate-400">+</span>
+                </button>
+              ) : (
+                <div className="flex w-full flex-wrap items-center gap-2">
+                  <span className="inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    {selectedProduct.imagePath ? (
+                      <UploadedImage
+                        src={selectedProduct.imagePath}
+                        alt={selectedProduct.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                        IMG
+                      </span>
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {selectedProduct.name}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {selectedProduct.brand}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModelPickerOpen(true)}
+                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Ndrysho modelin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductId("");
+                      setSelectedColor("");
+                      setVariants([]);
+                      setQuantities({});
+                      setModelPickerOpen(false);
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-base leading-none text-slate-500 transition hover:bg-slate-100"
+                    aria-label="Hiq modelin e zgjedhur"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        <ProductModelPicker
+          products={filteredProducts}
+          selectedProductId={productId}
+          onSelect={(value) => {
+            setProductId(value);
+            setSelectedColor("");
+            setVariants([]);
+            setQuantities({});
+            setModelPickerOpen(false);
+          }}
+          disabled={!selectedBrand}
+          placeholder="Zgjidh modelin"
+          emptyLabel="Nuk ka modele per kete brand."
+          displayMode="modalCards"
+          open={modelPickerOpen}
+          onOpenChange={setModelPickerOpen}
+          hideTrigger
+        />
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
@@ -326,6 +418,62 @@ export function IncomingStockForm({
 
       {variants.length > 0 ? (
         <>
+          {selectedColor ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">Ngjyra e zgjedhur:</span>
+                <span>{selectedColor}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedColor("")}
+                  className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-700 transition hover:bg-emerald-100"
+                >
+                  Ndrysho
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+              <p className="mb-4 text-sm font-semibold text-slate-900">
+                Zgjidh ngjyren
+              </p>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
+                {colorOptions.map((option) => (
+                  <button
+                    key={option.color}
+                    type="button"
+                    onClick={() => setSelectedColor(option.color)}
+                    className="overflow-hidden rounded-[18px] border border-slate-200 bg-white text-left transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <div className="aspect-[1/1] overflow-hidden bg-slate-100">
+                      {option.imagePath ? (
+                        <UploadedImage
+                          src={option.imagePath}
+                          alt={option.color}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                          IMG
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2.5 py-2.5">
+                      <p className="truncate text-[13px] font-semibold text-slate-950">
+                        {option.color}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {option.totalStock} ne stok
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedColor ? (
+          <>
           <div className="grid gap-4 lg:hidden">
             {visibleVariants.map((variant) => {
               const stockTone = getStockTone(variant.stock);
@@ -452,8 +600,10 @@ export function IncomingStockForm({
               </table>
             </div>
           </div>
+          </>
+          ) : null}
 
-          {visibleVariants.length === 0 ? (
+          {selectedColor && visibleVariants.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-10 text-center">
               <p className="text-base font-medium text-slate-900">
                 Nuk u gjet asnje variant me kete ngjyre

@@ -214,6 +214,15 @@ export default async function IncomingStockPage({
         id: true,
         brand: true,
         name: true,
+        variants: {
+          where: {
+            active: true,
+          },
+          select: {
+            imagePath: true,
+          },
+          take: 1,
+        },
       },
       orderBy: [{ name: "asc" }, { brand: "asc" }],
     }),
@@ -305,6 +314,7 @@ export default async function IncomingStockPage({
             id: product.id,
             name: product.name,
             brand: product.brand,
+            imagePath: product.variants[0]?.imagePath ?? null,
           }))}
           warehouses={warehouses.map((warehouse) => ({
             id: warehouse.id,
