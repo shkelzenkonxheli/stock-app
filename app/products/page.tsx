@@ -55,6 +55,34 @@ function buildProductsPageHref(
   return `/products?${params.toString()}`;
 }
 
+function buildProductsExportHref(
+  q: string,
+  brand: string,
+  model: string,
+  warehouse: string,
+) {
+  const params = new URLSearchParams();
+
+  if (q) {
+    params.set("q", q);
+  }
+
+  if (brand) {
+    params.set("brand", brand);
+  }
+
+  if (model) {
+    params.set("model", model);
+  }
+
+  if (warehouse) {
+    params.set("warehouse", warehouse);
+  }
+
+  const query = params.toString();
+  return query ? `/products/export/html?${query}` : "/products/export/html";
+}
+
 function getColorSwatchClass(color: string) {
   const normalized = color.trim().toLowerCase();
 
@@ -312,6 +340,12 @@ export default async function ProductsPage({
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
+  const exportHref = buildProductsExportHref(
+    searchQuery,
+    selectedBrand,
+    selectedModel,
+    selectedWarehouse,
+  );
   const brands = [...new Set(filterProducts.map((product) => product.brand))];
   const models = [
     ...new Set(
@@ -380,6 +414,12 @@ export default async function ProductsPage({
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
               >
                 Home
+              </Link>
+              <Link
+                href={exportHref}
+                className="inline-flex items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+              >
+                Shkarko listen
               </Link>
               {canManageInventory ? (
                 <Link
