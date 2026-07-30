@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { requireUser } from "@/lib/auth";
@@ -33,6 +35,60 @@ function toAbsoluteImageUrl(origin: string, src: string | null) {
   }
 
   return `${origin}/${src}`;
+}
+
+function getMimeType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".avif":
+      return "image/avif";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+async function toInlineImageSrc(origin: string, src: string | null) {
+  if (!src) {
+    return null;
+  }
+
+  if (/^data:/i.test(src)) {
+    return src;
+  }
+
+  if (/^https?:\/\//i.test(src)) {
+    try {
+      const response = await fetch(src);
+      if (!response.ok) {
+        return src;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const mimeType = response.headers.get("content-type") || getMimeType(src);
+      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      return `data:${mimeType};base64,${base64}`;
+    } catch {
+      return src;
+    }
+  }
+
+  const normalizedPath = src.startsWith("/") ? src.slice(1) : src;
+  const absolutePath = path.join(process.cwd(), "public", normalizedPath);
+
+  try {
+    const fileBuffer = await fs.readFile(absolutePath);
+    const mimeType = getMimeType(absolutePath);
+    return `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
+  } catch {
+    return toAbsoluteImageUrl(origin, src);
+  }
 }
 
 function buildWhere({
@@ -274,7 +330,7 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  const rows: StockSheetRow[] = products.flatMap((product) => {
+  const rawRows = products.flatMap((product) => {
     const grouped = new Map<
       string,
       { imagePath: string | null; sizes: Array<{ size: string; stock: number }> }
@@ -317,7 +373,7 @@ export async function GET(request: Request) {
 
     return [...grouped.values()].map((item) => ({
       brand: product.brand,
-      imageUrl: toAbsoluteImageUrl(origin, item.imagePath),
+      imagePath: item.imagePath,
       sizes: item.sizes.sort((a, b) =>
         a.size.localeCompare(b.size, "sq", {
           numeric: true,
@@ -326,6 +382,14 @@ export async function GET(request: Request) {
       ),
     }));
   });
+
+  const rows: StockSheetRow[] = await Promise.all(
+    rawRows.map(async (row) => ({
+      brand: row.brand,
+      imageUrl: await toInlineImageSrc(origin, row.imagePath),
+      sizes: row.sizes,
+    })),
+  );
 
   const warehouseLabel = warehouseId
     ? warehouses.find((item) => item.id === warehouseId)?.name ?? "Depo e zgjedhur"
@@ -344,7 +408,7 @@ export async function GET(request: Request) {
     rows,
     warehouseLabel,
     generatedAt,
-    toAbsoluteImageUrl(origin, "/logo.jpg"),
+    await toInlineImageSrc(origin, "/logo.jpg"),
   );
 
   return new NextResponse(html, {

@@ -80,7 +80,7 @@ function buildProductsExportHref(
   }
 
   const query = params.toString();
-  return query ? `/products/export/html?${query}` : "/products/export/html";
+  return query ? `/products/export?${query}` : "/products/export";
 }
 
 function getColorSwatchClass(color: string) {
