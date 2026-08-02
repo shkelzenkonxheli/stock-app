@@ -5,7 +5,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { hasRole, requireRole, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveWarehouseStock } from "@/lib/stock-levels";
-import { getActiveWarehouses } from "@/lib/warehouses";
+import { getActiveWarehouses, getDefaultWarehouse } from "@/lib/warehouses";
 import { ProductVariantsFilters } from "./product-variants-filters";
 import { VariantsManager } from "./variants-manager";
 
@@ -278,6 +278,8 @@ export default async function ProductDetailsPage({
   };
 
   const selectedWarehouseHidden = resolvedSearchParams?.warehouse?.trim() || "";
+  const defaultWarehouse = await getDefaultWarehouse();
+  const defaultWarehouseId = defaultWarehouse?.id ?? null;
 
   const [product, allVariants, filteredVariants, warehouses] = await Promise.all([
     prisma.product.findUnique({
@@ -376,6 +378,7 @@ export default async function ProductDetailsPage({
         Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
         variant.stock,
         selectedWarehouseId,
+        defaultWarehouseId,
       ),
     0,
   );
@@ -387,6 +390,7 @@ export default async function ProductDetailsPage({
           Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
           variant.stock,
           selectedWarehouseId,
+          defaultWarehouseId,
         );
         if (selectedStock === "in") return warehouseStock > 0;
         if (selectedStock === "low") {
@@ -527,6 +531,7 @@ export default async function ProductDetailsPage({
                     Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
                     variant.stock,
                     selectedWarehouseId,
+                    defaultWarehouseId,
                   ),
                   price: Number(variant.price),
                 }))}

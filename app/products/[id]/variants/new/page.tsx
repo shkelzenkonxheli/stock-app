@@ -8,6 +8,7 @@ import {
   saveProductImage,
 } from "@/lib/product-images";
 import { prisma } from "@/lib/prisma";
+import { getDefaultWarehouse } from "@/lib/warehouses";
 import {
   buildBarcodeFromVariantId,
   buildVariantSku,
@@ -197,6 +198,16 @@ async function createVariants(formData: FormData) {
   }
 
   if (normalizedRows.length > 0) {
+    const defaultWarehouse = await getDefaultWarehouse();
+
+    if (!defaultWarehouse) {
+      redirect(
+        `/products/${productId}/variants/new?error=${encodeURIComponent(
+          "Nuk u gjet depoja default. Vendose fillimisht Depo 1 si default.",
+        )}`,
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const row of normalizedRows) {
         const baseSku =
@@ -233,6 +244,25 @@ async function createVariants(formData: FormData) {
             barcode,
           },
         });
+
+        if (row.stock > 0) {
+          await tx.stockLevel.create({
+            data: {
+              variantId: createdVariant.id,
+              warehouseId: defaultWarehouse.id,
+              quantity: row.stock,
+            },
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              variantId: createdVariant.id,
+              warehouseId: defaultWarehouse.id,
+              quantity: row.stock,
+              reason: "INCOMING_STOCK",
+            },
+          });
+        }
       }
     });
   }

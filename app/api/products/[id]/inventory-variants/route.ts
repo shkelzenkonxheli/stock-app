@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveWarehouseStock } from "@/lib/stock-levels";
+import { getDefaultWarehouse } from "@/lib/warehouses";
 
 type RouteContext = {
   params: Promise<{
@@ -21,6 +22,8 @@ export async function GET(request: Request, context: RouteContext) {
   const { searchParams } = new URL(request.url);
   const warehouseIdParam = searchParams.get("warehouseId");
   const warehouseId = warehouseIdParam ? Number(warehouseIdParam) : null;
+  const defaultWarehouse = await getDefaultWarehouse();
+  const defaultWarehouseId = defaultWarehouse?.id ?? null;
 
   if (Number.isNaN(productId) || productId <= 0) {
     return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
@@ -71,6 +74,7 @@ export async function GET(request: Request, context: RouteContext) {
         Array.isArray(variant.stockLevels) ? variant.stockLevels : undefined,
         variant.stock,
         warehouseId,
+        defaultWarehouseId,
       ),
       price: Number(variant.price),
     })),
