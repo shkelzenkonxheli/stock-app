@@ -444,9 +444,19 @@ export default async function ProductsPage({
               </Link>
               <Link
                 href={exportHref}
-                className="inline-flex items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                aria-label="Shkarko listen"
+                title="Shkarko listen"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
               >
-                Shkarko listen
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+                  aria-hidden="true"
+                >
+                  <path d="M12 4v10" />
+                  <path d="m8 10 4 4 4-4" />
+                  <path d="M5 19h14" />
+                </svg>
               </Link>
               {canManageInventory ? (
                 <Link
