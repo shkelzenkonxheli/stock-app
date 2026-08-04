@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { ConfirmActionForm } from "@/app/components/confirm-action-form";
 import { hasRole, requireUser } from "@/lib/auth";
@@ -24,8 +23,6 @@ type ProductsPageProps = {
     brand?: string;
     model?: string;
     warehouse?: string;
-    feedback?: string;
-    feedbackType?: string;
   }>;
 };
 
@@ -86,43 +83,6 @@ function buildProductsExportHref(
   return query ? `/products/export?${query}` : "/products/export";
 }
 
-function buildProductsFeedbackHref(options: {
-  page?: string;
-  q?: string;
-  brand?: string;
-  model?: string;
-  warehouse?: string;
-  feedback?: string;
-  feedbackType?: string;
-}) {
-  const params = new URLSearchParams();
-
-  if (options.page) {
-    params.set("page", options.page);
-  }
-  if (options.q) {
-    params.set("q", options.q);
-  }
-  if (options.brand) {
-    params.set("brand", options.brand);
-  }
-  if (options.model) {
-    params.set("model", options.model);
-  }
-  if (options.warehouse) {
-    params.set("warehouse", options.warehouse);
-  }
-  if (options.feedback) {
-    params.set("feedback", options.feedback);
-  }
-  if (options.feedbackType) {
-    params.set("feedbackType", options.feedbackType);
-  }
-
-  const query = params.toString();
-  return query ? `/products?${params.toString()}` : "/products";
-}
-
 function getColorSwatchClass(color: string) {
   const normalized = color.trim().toLowerCase();
 
@@ -161,11 +121,6 @@ async function deleteProduct(formData: FormData) {
   "use server";
 
   const productId = Number(formData.get("productId"));
-  const page = formData.get("page")?.toString().trim() || "";
-  const q = formData.get("q")?.toString().trim() || "";
-  const brand = formData.get("brand")?.toString().trim() || "";
-  const model = formData.get("model")?.toString().trim() || "";
-  const warehouse = formData.get("warehouse")?.toString().trim() || "";
 
   if (!productId) {
     return;
@@ -175,45 +130,16 @@ async function deleteProduct(formData: FormData) {
     where: { id: productId },
     select: {
       id: true,
-      name: true,
+      _count: {
+        select: {
+          variants: true,
+        },
+      },
     },
   });
 
-  if (!product) {
+  if (!product || product._count.variants > 0) {
     return;
-  }
-
-  const linkedHistoryCount = await prisma.variant.count({
-    where: {
-      productId,
-      OR: [
-        {
-          orders: {
-            some: {},
-          },
-        },
-        {
-          items: {
-            some: {},
-          },
-        },
-      ],
-    },
-  });
-
-  if (linkedHistoryCount > 0) {
-    redirect(
-      buildProductsFeedbackHref({
-        page,
-        q,
-        brand,
-        model,
-        warehouse,
-        feedback:
-          "Ky produkt nuk mund te fshihet sepse ka histori porosish. Mund ta mbash ne sistem, por jo ta fshish.",
-        feedbackType: "error",
-      }),
-    );
   }
 
   await prisma.product.delete({
@@ -222,18 +148,6 @@ async function deleteProduct(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/products");
-
-  redirect(
-    buildProductsFeedbackHref({
-      page,
-      q,
-      brand,
-      model,
-      warehouse,
-      feedback: `Produkti ${product.name} u fshi me sukses.`,
-      feedbackType: "success",
-    }),
-  );
 }
 
 export default async function ProductsPage({
@@ -247,8 +161,6 @@ export default async function ProductsPage({
   const selectedBrand = resolvedSearchParams?.brand?.trim() || "";
   const selectedModel = resolvedSearchParams?.model?.trim() || "";
   const selectedWarehouse = resolvedSearchParams?.warehouse?.trim() || "";
-  const feedbackMessage = resolvedSearchParams?.feedback?.trim() || "";
-  const feedbackType = resolvedSearchParams?.feedbackType?.trim() || "";
   const selectedWarehouseId = Number(selectedWarehouse) || null;
   const currentPage = Math.max(1, Number(resolvedSearchParams?.page) || 1);
   const skip = (currentPage - 1) * PAGE_SIZE;
@@ -546,18 +458,6 @@ export default async function ProductsPage({
               ) : null}
             </div>
           </div>
-
-          {feedbackMessage ? (
-            <div
-              className={`rounded-2xl border px-4 py-3 text-sm ${
-                feedbackType === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700"
-              }`}
-            >
-              {feedbackMessage}
-            </div>
-          ) : null}
         </section>
 
         <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)]">
@@ -740,26 +640,6 @@ export default async function ProductsPage({
                             action={deleteProduct}
                             hiddenFields={[
                               { name: "productId", value: product.id },
-                              { name: "page", value: String(currentPage) },
-                              { name: "q", value: searchQuery },
-                              { name: "brand", value: selectedBrand },
-                              { name: "model", value: selectedModel },
-                              { name: "warehouse", value: selectedWarehouse },
-                            ]}
-                            confirmMessage="A je i sigurt qe don ta fshish kete produkt? Ky veprim nuk kthehet mbrapa."
-                            buttonLabel="Fshi"
-                            className="inline-flex w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                          />
-                        ) : canManageInventory ? (
-                          <ConfirmActionForm
-                            action={deleteProduct}
-                            hiddenFields={[
-                              { name: "productId", value: product.id },
-                              { name: "page", value: String(currentPage) },
-                              { name: "q", value: searchQuery },
-                              { name: "brand", value: selectedBrand },
-                              { name: "model", value: selectedModel },
-                              { name: "warehouse", value: selectedWarehouse },
                             ]}
                             confirmMessage="A je i sigurt qe don ta fshish kete produkt? Ky veprim nuk kthehet mbrapa."
                             buttonLabel="Fshi"
@@ -951,16 +831,12 @@ export default async function ProductsPage({
                                   </svg>
                                 </Link>
                               ) : null}
-                              {canManageInventory ? (
+                              {canManageInventory &&
+                              product.variants.length === 0 ? (
                                 <ConfirmActionForm
                                   action={deleteProduct}
                                   hiddenFields={[
                                     { name: "productId", value: product.id },
-                                    { name: "page", value: String(currentPage) },
-                                    { name: "q", value: searchQuery },
-                                    { name: "brand", value: selectedBrand },
-                                    { name: "model", value: selectedModel },
-                                    { name: "warehouse", value: selectedWarehouse },
                                   ]}
                                   confirmMessage="A je i sigurt qe don ta fshish kete produkt? Ky veprim nuk kthehet mbrapa."
                                   buttonLabel="Fshi"
