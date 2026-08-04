@@ -22,6 +22,7 @@ export type ProductStockQuickViewProps = {
   variants: ProductQuickVariant[];
   selectedWarehouseId?: number | null;
   className?: string;
+  stockButtonClassName?: string;
   showImageButton?: boolean;
   canAdjustStock?: boolean;
   canDeleteColor?: boolean;
@@ -164,6 +165,7 @@ export function ProductStockQuickView({
   variants,
   selectedWarehouseId = null,
   className = "",
+  stockButtonClassName = "",
   showImageButton = true,
   canAdjustStock = false,
   canDeleteColor = false,
@@ -714,13 +716,23 @@ export function ProductStockQuickView({
         </button>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setShowStock(true)}
-        className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-      >
-        Stoku
-      </button>
+        <button
+          type="button"
+          onClick={() => setShowStock(true)}
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 ${stockButtonClassName}`}
+          aria-label="Stoku"
+          title="Stoku"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+            aria-hidden="true"
+          >
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h16" />
+          </svg>
+        </button>
 
       {successToast ? (
         <div className="fixed bottom-4 right-4 z-[120] rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
@@ -813,7 +825,7 @@ export function ProductStockQuickView({
                     key={color}
                     className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4"
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                         <button
                           type="button"
@@ -857,7 +869,7 @@ export function ProductStockQuickView({
                       </div>
 
                       {canAdjustStock ? (
-                        <div className="relative self-end sm:self-start">
+                        <div className="relative shrink-0 self-start">
                           <button
                             type="button"
                             onClick={() =>
@@ -873,7 +885,7 @@ export function ProductStockQuickView({
 
                           {openColorActions === color ? (
                             <>
-                              <div className="absolute right-0 top-12 z-20 hidden w-44 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl sm:block">
+                              <div className="absolute right-0 top-12 z-30 w-40 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -883,7 +895,7 @@ export function ProductStockQuickView({
                                     setStockReason("INCOMING_STOCK");
                                     setStockError(null);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
+                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                                 >
                                   <IconBox />
                                   Shto sasi
@@ -897,7 +909,7 @@ export function ProductStockQuickView({
                                     setNewStock("");
                                     setCreateError(null);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
+                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                                 >
                                   <IconLayers />
                                   Shto numer
@@ -917,7 +929,7 @@ export function ProductStockQuickView({
                                     );
                                     setEditStockError(null);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
+                                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                                 >
                                   <IconPencil />
                                   Edito stokun
@@ -932,7 +944,7 @@ export function ProductStockQuickView({
                                         setDeleteColorTarget(color);
                                         setDeleteColorError(null);
                                       }}
-                                      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-rose-600 transition hover:bg-rose-50"
+                                      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-rose-600 transition hover:bg-rose-50"
                                     >
                                       <span className="inline-flex h-4 w-4 items-center justify-center text-base leading-none">
                                         ×
@@ -944,10 +956,10 @@ export function ProductStockQuickView({
                               </div>
 
                               <div
-                                className="fixed inset-0 z-20 bg-slate-950/15 sm:hidden"
+                                className="hidden"
                                 onClick={() => setOpenColorActions(null)}
                               />
-                              <div className="fixed inset-x-3 bottom-3 z-30 rounded-[24px] border border-slate-200 bg-white p-2 shadow-2xl sm:hidden">
+                              <div className="hidden">
                                 <div className="mb-1.5 px-2 pt-1">
                                   <p className="text-sm font-semibold text-slate-900">
                                     {color}

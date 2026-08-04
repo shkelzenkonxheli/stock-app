@@ -304,6 +304,24 @@ export default async function Home() {
       ),
     },
     {
+      title: "Depot",
+      subtitle: "Shto depo te reja dhe ndrysho emrat ekzistues pa prekur stokun.",
+      href: "/warehouses",
+      accent: "bg-[linear-gradient(135deg,#0f766e_0%,#14b8a6_100%)]",
+      pill: "Menaxhim dinamik i depove",
+      visible: canManageUsers,
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6 fill-none stroke-current stroke-[1.8]"
+        >
+          <path d="M4 20V8l8-4 8 4v12" />
+          <path d="M9 20v-5h6v5" />
+          <path d="M9 10h.01M15 10h.01" />
+        </svg>
+      ),
+    },
+    {
       title: "Raporte",
       subtitle: "Shikoni shitjet mujore, top modelet dhe ritmin ditor te shitjeve.",
       href: "/reports",

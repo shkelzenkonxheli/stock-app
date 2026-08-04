@@ -251,9 +251,19 @@ export default async function RootLayout({
                       <form action={logout} className="print:hidden">
                         <button
                           type="submit"
-                          className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                          aria-label="Log Out"
+                          title="Log Out"
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-300 bg-white text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                         >
-                          Log Out
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+                            aria-hidden="true"
+                          >
+                            <path d="M10 17l5-5-5-5" />
+                            <path d="M15 12H4" />
+                            <path d="M20 19V5" />
+                          </svg>
                         </button>
                       </form>
                       <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">

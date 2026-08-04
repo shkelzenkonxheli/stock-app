@@ -15,6 +15,7 @@ export const metadata = {
 };
 
 const PAGE_SIZE = 20;
+const MAX_VISIBLE_SIZES = 5;
 
 type ProductsPageProps = {
   searchParams?: Promise<{
@@ -115,6 +116,10 @@ function getColorSwatchClass(color: string) {
   }
 
   return "bg-slate-300";
+}
+
+function getVisibleSizes(sizes: string[]) {
+  return sizes.slice(0, MAX_VISIBLE_SIZES);
 }
 
 async function deleteProduct(formData: FormData) {
@@ -294,7 +299,8 @@ export default async function ProductsPage({
   const where: Prisma.ProductWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  const [products, totalProducts, filterProducts, stockTotals, warehouses] = await Promise.all([
+  const [products, totalProducts, filterProducts, stockTotals, lowStockData, warehouses] =
+    await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: {
@@ -359,8 +365,33 @@ export default async function ProductsPage({
           : {}),
       },
     }),
-    getActiveWarehouses(),
-  ]);
+      prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          variants: {
+            where: {
+              active: true,
+            },
+            select: {
+              stock: true,
+              ...(selectedWarehouseId
+                ? {
+                    stockLevels: {
+                      where: { warehouseId: selectedWarehouseId },
+                      select: {
+                        warehouseId: true,
+                        quantity: true,
+                      },
+                    },
+                  }
+                : {}),
+            },
+          },
+        },
+      }),
+      getActiveWarehouses(),
+    ]);
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
@@ -389,7 +420,7 @@ export default async function ProductsPage({
       ),
     0,
   );
-  const lowStockProducts = products.filter((product) =>
+  const lowStockProducts = lowStockData.filter((product) =>
     product.variants.some(
       (variant) => {
         const currentStock = resolveWarehouseStock(
@@ -419,51 +450,97 @@ export default async function ProductsPage({
         <section className="space-y-5 rounded-[30px] border border-slate-200 bg-white px-5 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 Te gjitha patikat
               </h1>
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-                  {totalProducts.toLocaleString("sq-AL")} Produkte gjithsej
-                </span>
                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-700">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="mr-1.5 h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 7h16" />
+                    <path d="M4 12h16" />
+                    <path d="M4 17h16" />
+                  </svg>
                   {totalPairs.toLocaleString("sq-AL")} Patika ne total
                 </span>
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="mr-1.5 h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 19h16" />
+                    <path d="M7 16V9" />
+                    <path d="M12 16V5" />
+                    <path d="M17 16v-3" />
+                  </svg>
+                  {totalProducts.toLocaleString("sq-AL")} Produkte gjithsej
+                </span>
                 <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 font-medium text-rose-600">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="mr-1.5 h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                  </svg>
                   {lowStockProducts} Stoku i ulet
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
-              >
-                Home
-              </Link>
-              <Link
-                href={exportHref}
-                aria-label="Shkarko listen"
-                title="Shkarko listen"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
-                  aria-hidden="true"
+            <div className="flex items-center gap-3">
+                <Link
+                  href="/"
+                  aria-label="Home"
+                  title="Home"
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 text-slate-700 transition hover:border-slate-400 hover:bg-white"
                 >
-                  <path d="M12 4v10" />
-                  <path d="m8 10 4 4 4-4" />
-                  <path d="M5 19h14" />
-                </svg>
-              </Link>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 10.5 12 3l9 7.5" />
+                    <path d="M5 9.5V21h14V9.5" />
+                  </svg>
+                </Link>
+                <Link
+                  href={exportHref}
+                  aria-label="Shkarko listen"
+                  title="Shkarko listen"
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 4v10" />
+                    <path d="m8 10 4 4 4-4" />
+                    <path d="M5 19h14" />
+                  </svg>
+                </Link>
               {canManageInventory ? (
                 <Link
                   href="/products/new"
-                  className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
+                  title="Shto model te ri"
+                  className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
                 >
-                  + Shto Model te Ri
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </svg>
+                  Shto Model te Ri
                 </Link>
               ) : null}
             </div>
@@ -613,7 +690,7 @@ export default async function ProductsPage({
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                      <div className="mt-4 grid grid-cols-3 gap-2">
                         <ProductStockQuickViewClient
                           productId={product.id}
                           productName={product.name}
@@ -628,21 +705,40 @@ export default async function ProductsPage({
                           }))}
                           selectedWarehouseId={selectedWarehouseId}
                           showImageButton={false}
+                          stockButtonClassName="h-11 w-full rounded-2xl"
                           canAdjustStock={canQuickAdjustStock}
                           canDeleteColor={canManageInventory}
                         />
                         <Link
                           href={`/products/${product.id}`}
-                          className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                          aria-label="Menaxho"
+                          title="Menaxho"
+                          className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-300 bg-white text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                         >
-                          Menaxho
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4.5 w-4.5 fill-none stroke-current stroke-[1.8]"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" />
+                            <circle cx="12" cy="12" r="2.5" />
+                          </svg>
                         </Link>
                         {canManageInventory ? (
                           <Link
                             href={`/products/${product.id}/edit`}
-                            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                            aria-label="Edito"
+                            title="Edito"
+                            className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-300 bg-white text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                           >
-                            Edito
+                            <svg
+                              viewBox="0 0 24 24"
+                              className="h-4.5 w-4.5 fill-none stroke-current stroke-[1.8]"
+                              aria-hidden="true"
+                            >
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
                           </Link>
                         ) : null}
                         {canManageInventory && product.variants.length === 0 ? (
@@ -663,7 +759,7 @@ export default async function ProductsPage({
               </div>
 
               <div className="hidden overflow-x-auto lg:block">
-                <table className="min-w-full text-sm">
+                <table className="min-w-full table-fixed text-sm">
                   <thead className="bg-slate-50/90 text-left">
                     <tr className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                       <th className="px-5 py-4">Modeli</th>
@@ -689,6 +785,7 @@ export default async function ProductsPage({
                           visibleStockVariants.map((variant) => variant.size),
                         ),
                       ];
+                      const visibleSizes = getVisibleSizes(sizes);
                       const colors = [
                         ...new Set(
                           visibleStockVariants.map((variant) => variant.color),
@@ -742,10 +839,10 @@ export default async function ProductsPage({
                           <td className="px-5 py-4 text-slate-600">
                             {product.brand}
                           </td>
-                          <td className="px-5 py-4 text-slate-600">
-                            <div className="flex flex-wrap gap-1.5">
+                          <td className="w-[220px] px-5 py-4 text-slate-600">
+                            <div className="flex flex-wrap gap-1.5 overflow-hidden">
                               {sizes.length > 0 ? (
-                                sizes.map((size) => (
+                                visibleSizes.map((size) => (
                                   <span
                                     key={size}
                                     className="inline-flex min-w-7 items-center justify-center rounded-md bg-slate-100 px-1.5 py-1 text-xs font-semibold text-slate-600"
@@ -756,6 +853,11 @@ export default async function ProductsPage({
                               ) : (
                                 <span>-</span>
                               )}
+                              {sizes.length > MAX_VISIBLE_SIZES ? (
+                                <span className="inline-flex min-w-7 items-center justify-center rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs font-semibold text-slate-500">
+                                  +{sizes.length - MAX_VISIBLE_SIZES}
+                                </span>
+                              ) : null}
                             </div>
                           </td>
                           <td className="px-5 py-4 text-slate-600">
@@ -803,12 +905,6 @@ export default async function ProductsPage({
                           </td>
                           <td className="px-5 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <Link
-                                href={`/products/${product.id}`}
-                                className="inline-flex items-center justify-center rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
-                              >
-                                Menaxho
-                              </Link>
                               <ProductStockQuickViewClient
                                 productId={product.id}
                                 productName={product.name}
@@ -826,6 +922,21 @@ export default async function ProductsPage({
                                 canAdjustStock={canQuickAdjustStock}
                                 canDeleteColor={canManageInventory}
                               />
+                              <Link
+                                href={`/products/${product.id}`}
+                                aria-label="Menaxho"
+                                title="Menaxho"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" />
+                                  <circle cx="12" cy="12" r="2.5" />
+                                </svg>
+                              </Link>
                               {canManageInventory ? (
                                 <Link
                                   href={`/products/${product.id}/edit`}
