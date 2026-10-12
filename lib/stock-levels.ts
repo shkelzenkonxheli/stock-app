@@ -10,7 +10,9 @@ export function resolveWarehouseStock(
   defaultWarehouseId?: number | null,
 ) {
   if (!warehouseId) {
-    return fallbackStock;
+    return stockLevels && stockLevels.length > 0
+      ? stockLevels.reduce((total, level) => total + level.quantity, 0)
+      : fallbackStock;
   }
 
   const match = stockLevels?.find((level) => level.warehouseId === warehouseId);

@@ -84,6 +84,34 @@ function buildProductsExportHref(
   return query ? `/products/export?${query}` : "/products/export";
 }
 
+function buildProductsCsvHref(
+  q: string,
+  brand: string,
+  model: string,
+  warehouse: string,
+) {
+  const params = new URLSearchParams();
+
+  if (q) {
+    params.set("q", q);
+  }
+
+  if (brand) {
+    params.set("brand", brand);
+  }
+
+  if (model) {
+    params.set("model", model);
+  }
+
+  if (warehouse) {
+    params.set("warehouse", warehouse);
+  }
+
+  const query = params.toString();
+  return query ? `/products/export/csv?${query}` : "/products/export/csv";
+}
+
 function getColorSwatchClass(color: string) {
   const normalized = color.trim().toLowerCase();
 
@@ -253,6 +281,7 @@ export default async function ProductsPage({
         {
           variants: {
             some: {
+              active: true,
               stockLevels: {
                 some: {
                   warehouseId: selectedWarehouseId,
@@ -288,9 +317,10 @@ export default async function ProductsPage({
       variants: {
         some: {
           active: true,
-          stock: {
-            gt: 0,
-          },
+          OR: [
+            { stockLevels: { some: { quantity: { gt: 0 } } } },
+            { stockLevels: { none: {} }, stock: { gt: 0 } },
+          ],
         },
       },
     });
@@ -321,17 +351,10 @@ export default async function ProductsPage({
             imagePath: true,
             active: true,
             stock: true,
-            ...(selectedWarehouseId
-              ? {
-                  stockLevels: {
-                    where: { warehouseId: selectedWarehouseId },
-                    select: {
-                      warehouseId: true,
-                      quantity: true,
-                    },
-                  },
-                }
-              : {}),
+            stockLevels: {
+              // All locations are needed for totals and the legacy fallback.
+              select: { warehouseId: true, quantity: true },
+            },
             price: true,
           },
         },
@@ -352,17 +375,9 @@ export default async function ProductsPage({
       },
       select: {
         stock: true,
-        ...(selectedWarehouseId
-          ? {
-              stockLevels: {
-                where: { warehouseId: selectedWarehouseId },
-                select: {
-                  warehouseId: true,
-                  quantity: true,
-                },
-              },
-            }
-          : {}),
+        stockLevels: {
+          select: { warehouseId: true, quantity: true },
+        },
       },
     }),
       prisma.product.findMany({
@@ -375,17 +390,9 @@ export default async function ProductsPage({
             },
             select: {
               stock: true,
-              ...(selectedWarehouseId
-                ? {
-                    stockLevels: {
-                      where: { warehouseId: selectedWarehouseId },
-                      select: {
-                        warehouseId: true,
-                        quantity: true,
-                      },
-                    },
-                  }
-                : {}),
+              stockLevels: {
+                select: { warehouseId: true, quantity: true },
+              },
             },
           },
         },
@@ -396,6 +403,12 @@ export default async function ProductsPage({
   const previousPage = currentPage > 1 ? currentPage - 1 : null;
   const nextPage = currentPage < totalPages ? currentPage + 1 : null;
   const exportHref = buildProductsExportHref(
+    searchQuery,
+    selectedBrand,
+    selectedModel,
+    selectedWarehouse,
+  );
+  const csvHref = buildProductsCsvHref(
     searchQuery,
     selectedBrand,
     selectedModel,
@@ -526,6 +539,23 @@ export default async function ProductsPage({
                     <path d="M5 19h14" />
                   </svg>
                 </Link>
+                <Link
+                  href={csvHref}
+                  aria-label="Shkarko CSV"
+                  title="Shkarko CSV"
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+                    aria-hidden="true"
+                  >
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+                    <path d="M14 3v5h5" />
+                    <path d="M8 13h8" />
+                    <path d="M8 17h5" />
+                  </svg>
+                </Link>
               {canManageInventory ? (
                 <Link
                   href="/products/new"
@@ -550,7 +580,7 @@ export default async function ProductsPage({
         <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.07)]">
           <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
             <ProductsFilters
-              key={`${searchQuery}|${selectedBrand}|${selectedModel}`}
+              key={`${searchQuery}|${selectedBrand}|${selectedModel}|${selectedWarehouse}`}
               searchQuery={searchQuery}
               selectedBrand={selectedBrand}
               selectedModel={selectedModel}
